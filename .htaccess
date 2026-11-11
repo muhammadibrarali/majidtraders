@@ -43,25 +43,31 @@ RewriteRule ^(includes|lib)(/|$) - [F,L]
 # ---------------------------------------------------------------------
 # 3) Clean URLs
 # ---------------------------------------------------------------------
-# /index.php -> /
-RewriteCond %{REQUEST_METHOD} =GET
-RewriteCond %{THE_REQUEST} \s/+index\.php[\s?]
-RewriteRule ^ / [R=301,L]
+# The two ".php" redirects below only run for the visitor's ORIGINAL request
+# (REDIRECT_STATUS is empty), never for the server's internal hand-offs such
+# as showing the error page.
 
-# /about.php -> /about   (only for normal page visits)
+# /index.php -> /   and   /admin/index.php -> /admin/
+RewriteCond %{ENV:REDIRECT_STATUS} ^$
 RewriteCond %{REQUEST_METHOD} =GET
-RewriteCond %{THE_REQUEST} \s/+([^?\s]+?)\.php[\s?]
-RewriteCond %1 !^(media|error)$
+RewriteCond %{THE_REQUEST} \s/+((?:[^?\s/]+/)*)index\.php[\s?]
 RewriteRule ^ /%1 [R=301,L,NE]
 
-# /about -> serves about.php behind the scenes
-RewriteCond %{REQUEST_FILENAME} !-d
-RewriteCond %{REQUEST_FILENAME} !-f
-RewriteCond %{DOCUMENT_ROOT}/$1.php -f
-RewriteRule ^(.+?)/?$ $1.php [L]
+# /about.php -> /about  and  /admin/login.php -> /admin/login
+RewriteCond %{ENV:REDIRECT_STATUS} ^$
+RewriteCond %{REQUEST_METHOD} =GET
+RewriteCond %{THE_REQUEST} \s/+([^?\s]+?)\.php[\s?]
+RewriteCond %1 !^(media|error|router)$
+RewriteRule ^ /%1 [R=301,L,NE]
 
-# Detail pages (e.g. /projects/school-renovation-mardan) will be added
-# here when those pages are built.
+# Everything that is not a real file or folder goes to router.php, which
+# decides which page to show (e.g. /about -> about.php,
+# /admin/services -> admin/services.php, later /projects/<slug>).
+# This is the same rule WordPress uses, so it behaves identically on
+# Apache and LiteSpeed.
+RewriteCond %{REQUEST_FILENAME} !-f
+RewriteCond %{REQUEST_FILENAME} !-d
+RewriteRule ^ /router.php [L]
 </IfModule>
 
 # Extra safety: deny sensitive file types even if mod_rewrite is off

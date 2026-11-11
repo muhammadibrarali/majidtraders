@@ -23,7 +23,8 @@ These rules apply to EVERY task in this repository. Read them before changing an
 ## Tech stack
 - Front end: semantic HTML5, modern CSS (custom properties, grid, clamp), vanilla JavaScript.
 - Animations: GSAP + ScrollTrigger and Lenis smooth scroll, loaded from jsDelivr with **pinned versions**. Every section animates on scroll. Respect `prefers-reduced-motion`. Content must stay visible and indexable if JavaScript fails (never hide content with CSS that only JS can undo).
-- Back end: plain PHP 8 with PDO (MySQL). Clean URLs via `.htaccess`.
+- Back end: plain PHP 8 with PDO (MySQL). Clean URLs via `.htaccess` + `router.php`.
+- Routing rule (LiteSpeed-safe): `.htaccess` uses the WordPress-style rule "not a file/folder -> /router.php"; router.php maps `/x` -> `x.php` and `/admin/x` -> `admin/x.php` (and later `/projects/<slug>` etc.). Do NOT put `.htaccess` files in folders that contain pages (LiteSpeed and Apache treat parent rewrite rules differently there), and do NOT use `%{DOCUMENT_ROOT}/$1` file tests. Test routing on real Apache with `.htaccess`, not the PHP built-in server.
 - Admin panel at `/admin` to manage all content without code.
 
 ## Private folder (outside public_html, never in GitHub)
@@ -64,7 +65,8 @@ Home, About, Services (+ detail pages), Projects (+ detail pages), Clients, Team
 ├── .htaccess         redirects, clean URLs, security headers, blocking rules
 ├── .user.ini         PHP settings (errors hidden from visitors)
 ├── index.php         home page
-├── error.php         friendly error page (403/404/500)
+├── error.php         friendly error page (403/404/500/503)
+├── router.php        clean-URL router: .htaccess sends every non-file address here
 ├── robots.txt
 ├── config.example.php  template for ../private/config.php (placeholders only)
 ├── assets/
@@ -78,7 +80,7 @@ Home, About, Services (+ detail pages), Projects (+ detail pages), Clients, Team
 │   ├── admin_layout.php  admin sidebar layout, icons, "coming soon" placeholder
 │   └── schema.php    full database design (CREATE TABLE IF NOT EXISTS ...)
 ├── lib/              third-party PHP libraries (e.g. PHPMailer) — blocked from web
-└── admin/            admin panel (noindex + no-cache; local CSS/JS only, no CDN)
+└── admin/            admin panel (noindex + no-cache sent by PHP admin_headers(); local CSS/JS only, no CDN)
     ├── index.php     dashboard          ├── login.php / logout.php (logout = POST + CSRF)
     ├── password.php  change password (logs out other sessions)
     └── <section>.php one file per sidebar section; every page starts with require_admin()

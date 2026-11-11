@@ -67,6 +67,18 @@ if (session_status() === PHP_SESSION_NONE) {
     ini_set('session.use_strict_mode', '1');
     ini_set('session.use_only_cookies', '1');
     ini_set('session.use_trans_sid', '0');
+    // Keep session files for 1 hour (our own 30-minute idle timeout is enforced in auth.php).
+    ini_set('session.gc_maxlifetime', '3600');
+    // Store sessions in private/sessions (outside public_html) when possible.
+    $sessionDir = PRIVATE_PATH . '/sessions';
+    if (is_dir($sessionDir) || @mkdir($sessionDir, 0700, true)) {
+        if (is_writable($sessionDir)) {
+            session_save_path($sessionDir);
+            // Make PHP clean up old session files in this folder itself.
+            ini_set('session.gc_probability', '1');
+            ini_set('session.gc_divisor', '100');
+        }
+    }
     session_name('mt_session');
     session_set_cookie_params([
         'lifetime' => 0,

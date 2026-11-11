@@ -53,7 +53,7 @@ These rules apply to EVERY task in this repository. Read them before changing an
 ## Database
 - Design lives in `includes/schema.php`. Tables: admin_users, login_attempts, media, settings (key/value), counters, services, clients, project_categories, projects, project_images, team_members, blog_categories, blog_posts, certifications, testimonials, contact_messages.
 - Content tables have `status` ('draft'/'published'), `sort_order`, `created_at`, `updated_at`; slugs are UNIQUE.
-- To add/change tables later: add the change to schema.php AND write a small upgrade step (setup.php refuses to run once an admin exists).
+- Setup is complete on the live site and admin/setup.php was deleted. To add/change tables later: update schema.php AND add a small, admin-only upgrade step.
 
 ## Pages (built step by step)
 Home, About, Services (+ detail pages), Projects (+ detail pages), Clients, Team, Blog (+ posts), Certifications & Registrations, Contact (form + WhatsApp + map), Privacy Policy, plus a Staff Login link to portal.majidtraders.org.
@@ -74,14 +74,18 @@ Home, About, Services (+ detail pages), Projects (+ detail pages), Clients, Team
 ├── includes/         shared PHP — blocked from web
 │   ├── helpers.php   e(), is_https(), show_error_page() — no DB/config needed
 │   ├── bootstrap.php loads ../private/config.php, secure session, db() PDO, CSRF helpers
-│   ├── schema.php    full database design (CREATE TABLE IF NOT EXISTS ...)
-│   └── install.php   table creation + default settings (used by admin/setup.php)
+│   ├── auth.php      admin login, 5-tries/15-min lockout, 30-min idle logout, require_admin()
+│   ├── admin_layout.php  admin sidebar layout, icons, "coming soon" placeholder
+│   └── schema.php    full database design (CREATE TABLE IF NOT EXISTS ...)
 ├── lib/              third-party PHP libraries (e.g. PHPMailer) — blocked from web
-└── admin/            admin panel (noindex via admin/.htaccess)
-    └── setup.php     one-time setup: creates tables + first admin, then locks itself forever
+└── admin/            admin panel (noindex + no-cache; local CSS/JS only, no CDN)
+    ├── index.php     dashboard          ├── login.php / logout.php (logout = POST + CSRF)
+    ├── password.php  change password (logs out other sessions)
+    └── <section>.php one file per sidebar section; every page starts with require_admin()
 
 ../private/           OUTSIDE the website, never in git
 ├── config.php
+├── sessions/         PHP session files (created automatically)
 └── uploads/
 ```
 

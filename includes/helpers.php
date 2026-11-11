@@ -24,6 +24,17 @@ function is_https(): bool
         || (($_SERVER['SERVER_PORT'] ?? '') === '443');
 }
 
+/** Send the browser to another page on this site and stop. */
+function redirect(string $path): never
+{
+    // Only allow local paths like "/admin/" (never another website).
+    if (!str_starts_with($path, '/') || str_starts_with($path, '//')) {
+        $path = '/';
+    }
+    header('Location: ' . $path, true, 303);
+    exit;
+}
+
 /**
  * Show the friendly error page with the given HTTP code and stop.
  * Visitors never see technical details; those go to the error log.

@@ -1,0 +1,149 @@
+/* Temporary "coming soon" page + error page styles */
+:root {
+  --orange: #F26B1D;
+  --orange-soft: #FF8A45;
+  --charcoal: #1E2124;
+  --charcoal-2: #2A2E33;
+  --text: #F4F2EF;
+  --muted: #A9ADB3;
+  --font: "Segoe UI", system-ui, -apple-system, Roboto, "Helvetica Neue", Arial, sans-serif;
+}
+
+*, *::before, *::after { box-sizing: border-box; }
+
+html, body { margin: 0; min-height: 100%; }
+
+body {
+  font-family: var(--font);
+  color: var(--text);
+  background-color: var(--charcoal);
+  background-image:
+    radial-gradient(60rem 40rem at 85% -10%, rgba(242, 107, 29, .22), transparent 60%),
+    radial-gradient(40rem 30rem at -10% 110%, rgba(242, 107, 29, .12), transparent 60%);
+  -webkit-font-smoothing: antialiased;
+}
+
+.cs {
+  min-height: 100vh;
+  min-height: 100svh;
+  display: grid;
+  grid-template-rows: 1fr auto;
+  padding: clamp(1.5rem, 5vw, 4rem);
+}
+
+.cs__inner {
+  align-self: center;
+  justify-self: center;
+  max-width: 60rem;
+  width: 100%;
+  text-align: center;
+  /* One smooth fade-in. Content is fully visible even if CSS animations are unsupported. */
+  animation: cs-fade-in 1.4s cubic-bezier(.22, 1, .36, 1) both;
+}
+
+@keyframes cs-fade-in {
+  from { opacity: 0; transform: translateY(24px); }
+  to   { opacity: 1; transform: none; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .cs__inner { animation: none; }
+}
+
+.cs__logo {
+  display: inline-grid;
+  place-items: center;
+  width: clamp(4rem, 10vw, 5.5rem);
+  aspect-ratio: 1;
+  margin-bottom: clamp(1.5rem, 4vw, 2.5rem);
+  border-radius: 1.25rem;
+  background: var(--orange);
+  color: var(--charcoal);
+  font-weight: 900;
+  font-size: clamp(1.6rem, 4vw, 2.2rem);
+  letter-spacing: -.04em;
+  box-shadow: 0 20px 50px -15px rgba(242, 107, 29, .6);
+}
+
+.cs__eyebrow {
+  margin: 0 0 1rem;
+  color: var(--orange);
+  font-weight: 700;
+  letter-spacing: .2em;
+  text-transform: uppercase;
+  font-size: .85rem;
+}
+
+.cs__title {
+  margin: 0;
+  font-size: clamp(2.75rem, 10vw, 7rem);
+  line-height: .95;
+  font-weight: 900;
+  letter-spacing: -.04em;
+}
+
+.cs__lead {
+  margin: clamp(1rem, 3vw, 1.5rem) 0 0;
+  font-size: clamp(1.15rem, 3.2vw, 1.75rem);
+  color: var(--muted);
+  font-weight: 500;
+}
+
+.cs__accent { color: var(--orange); font-weight: 700; }
+
+.cs__tagline {
+  display: inline-block;
+  margin: clamp(1.5rem, 4vw, 2.25rem) 0 0;
+  padding: .55rem 1.25rem;
+  border: 1px solid rgba(242, 107, 29, .5);
+  border-radius: 999px;
+  color: var(--orange-soft);
+  font-style: italic;
+  font-weight: 600;
+  letter-spacing: .02em;
+}
+
+.cs__services {
+  list-style: none;
+  margin: clamp(2rem, 6vw, 3.5rem) 0 0;
+  padding: 0;
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: .75rem;
+}
+
+.cs__services li {
+  padding: .6rem 1.1rem;
+  border-radius: .75rem;
+  background: var(--charcoal-2);
+  border: 1px solid rgba(255, 255, 255, .06);
+  font-size: .95rem;
+}
+
+.cs__btn {
+  display: inline-block;
+  margin-top: 2rem;
+  padding: .85rem 1.6rem;
+  border-radius: 999px;
+  background: var(--orange);
+  color: var(--charcoal);
+  font-weight: 700;
+  text-decoration: none;
+}
+.cs__btn:hover, .cs__btn:focus-visible { background: var(--orange-soft); }
+
+.cs__footer {
+  margin-top: 3rem;
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  gap: .5rem 1.5rem;
+  color: var(--muted);
+  font-size: .85rem;
+}
+.cs__footer p { margin: 0; }
+.cs__footer a { color: var(--text); text-decoration: none; border-bottom: 1px solid var(--orange); }
+.cs__footer a:hover, .cs__footer a:focus-visible { color: var(--orange); }
+
+:focus-visible { outline: 2px solid var(--orange); outline-offset: 3px; }

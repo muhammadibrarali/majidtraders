@@ -1,0 +1,33 @@
+# --- Secrets & real configuration (NEVER commit) ---
+config.php
+.env
+.env.*
+*.pem
+*.key
+
+# --- Private folder & uploads (live outside public_html) ---
+private/
+uploads/
+
+# --- Backups & database dumps ---
+backups/
+backup/
+*.sql
+*.sql.gz
+*.sqlite
+*.bak
+*.zip
+*.tar.gz
+
+# --- Logs & temp ---
+*.log
+error_log
+tmp/
+cache/
+
+# --- OS / editor clutter ---
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
+node_modules/

@@ -1,0 +1,109 @@
+# =====================================================================
+#  majidtraders.org — main .htaccess
+#  Redirects, clean URLs, security headers, blocking of private files.
+# =====================================================================
+
+Options -Indexes -MultiViews
+DirectoryIndex index.php index.html
+ServerSignature Off
+AddDefaultCharset UTF-8
+
+# Friendly error pages (never show server/PHP errors to visitors)
+ErrorDocument 403 /error.php?code=403
+ErrorDocument 404 /error.php?code=404
+ErrorDocument 500 /error.php?code=500
+
+<IfModule mod_rewrite.c>
+RewriteEngine On
+
+# ---------------------------------------------------------------------
+# 1) Force HTTPS and non-www in ONE redirect
+#    (the /.well-known/ folder is left alone so SSL renewal keeps working)
+# ---------------------------------------------------------------------
+# http://(www.)majidtraders.org -> https://majidtraders.org
+RewriteCond %{REQUEST_URI} !^/\.well-known/
+RewriteCond %{HTTPS} !=on
+RewriteCond %{HTTP:X-Forwarded-Proto} !https
+RewriteCond %{HTTP_HOST} ^(?:www\.)?(.+)$ [NC]
+RewriteRule ^ https://%1%{REQUEST_URI} [R=301,L,NE]
+
+# https://www.majidtraders.org -> https://majidtraders.org
+RewriteCond %{REQUEST_URI} !^/\.well-known/
+RewriteCond %{HTTP_HOST} ^www\.(.+)$ [NC]
+RewriteRule ^ https://%1%{REQUEST_URI} [R=301,L,NE]
+
+# ---------------------------------------------------------------------
+# 2) Block private files and folders
+# ---------------------------------------------------------------------
+# Hidden files/folders (.git, .env, .htaccess, .user.ini ...) except /.well-known/
+RewriteRule (^|/)\.(?!well-known(/|$)) - [F,L]
+# Internal PHP code and third-party libraries
+RewriteRule ^(includes|lib)(/|$) - [F,L]
+
+# ---------------------------------------------------------------------
+# 3) Clean URLs
+# ---------------------------------------------------------------------
+# /index.php -> /
+RewriteCond %{REQUEST_METHOD} =GET
+RewriteCond %{THE_REQUEST} \s/+index\.php[\s?]
+RewriteRule ^ / [R=301,L]
+
+# /about.php -> /about   (only for normal page visits)
+RewriteCond %{REQUEST_METHOD} =GET
+RewriteCond %{THE_REQUEST} \s/+([^?\s]+?)\.php[\s?]
+RewriteCond %1 !^(media|error)$
+RewriteRule ^ /%1 [R=301,L,NE]
+
+# /about -> serves about.php behind the scenes
+RewriteCond %{REQUEST_FILENAME} !-d
+RewriteCond %{REQUEST_FILENAME} !-f
+RewriteCond %{DOCUMENT_ROOT}/$1.php -f
+RewriteRule ^(.+?)/?$ $1.php [L]
+
+# Detail pages (e.g. /projects/school-renovation-mardan) will be added
+# here when those pages are built.
+</IfModule>
+
+# Extra safety: deny sensitive file types even if mod_rewrite is off
+<FilesMatch "(^\.|\.(md|sql|sqlite|log|bak|ini|env|sh|lock|dist|yml|yaml)$|^(config\.example\.php|composer\.(json|lock)|package(-lock)?\.json)$)">
+    <IfModule mod_authz_core.c>
+        Require all denied
+    </IfModule>
+</FilesMatch>
+
+# ---------------------------------------------------------------------
+# 4) Security headers
+# ---------------------------------------------------------------------
+<IfModule mod_headers.c>
+    Header always set Strict-Transport-Security "max-age=31536000"
+    Header always set X-Content-Type-Options "nosniff"
+    Header always set X-Frame-Options "SAMEORIGIN"
+    Header always set Referrer-Policy "strict-origin-when-cross-origin"
+    Header always set Permissions-Policy "camera=(), microphone=(), geolocation=(), payment=(), usb=(), magnetometer=(), gyroscope=(), accelerometer=()"
+    Header always set Cross-Origin-Opener-Policy "same-origin"
+    # Content-Security-Policy: only our own files + jsDelivr (GSAP/Lenis)
+    # + Google Maps iframe (for the contact page later).
+    Header always set Content-Security-Policy "default-src 'self'; script-src 'self' https://cdn.jsdelivr.net; style-src 'self'; img-src 'self' data:; font-src 'self'; connect-src 'self'; frame-src https://www.google.com; object-src 'none'; base-uri 'self'; form-action 'self'; frame-ancestors 'self'; upgrade-insecure-requests"
+    Header always unset X-Powered-By
+    Header unset X-Powered-By
+</IfModule>
+
+# ---------------------------------------------------------------------
+# 5) Speed: compression + browser caching for static files
+# ---------------------------------------------------------------------
+<IfModule mod_deflate.c>
+    AddOutputFilterByType DEFLATE text/html text/css text/plain text/xml application/javascript application/json application/xml image/svg+xml
+</IfModule>
+
+<IfModule mod_expires.c>
+    ExpiresActive On
+    ExpiresDefault "access plus 0 seconds"
+    ExpiresByType text/css "access plus 1 month"
+    ExpiresByType application/javascript "access plus 1 month"
+    ExpiresByType image/svg+xml "access plus 6 months"
+    ExpiresByType image/webp "access plus 6 months"
+    ExpiresByType image/png "access plus 6 months"
+    ExpiresByType image/jpeg "access plus 6 months"
+    ExpiresByType image/x-icon "access plus 6 months"
+    ExpiresByType font/woff2 "access plus 1 year"
+</IfModule>

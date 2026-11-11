@@ -87,9 +87,8 @@ RewriteRule ^ /router.php [L]
     Header always set Referrer-Policy "strict-origin-when-cross-origin"
     Header always set Permissions-Policy "camera=(), microphone=(), geolocation=(), payment=(), usb=(), magnetometer=(), gyroscope=(), accelerometer=()"
     Header always set Cross-Origin-Opener-Policy "same-origin"
-    # Content-Security-Policy: only our own files + jsDelivr (GSAP/Lenis)
-    # + Google Maps iframe (for the contact page later).
-    Header always set Content-Security-Policy "default-src 'self'; script-src 'self' https://cdn.jsdelivr.net; style-src 'self'; img-src 'self' data:; font-src 'self'; connect-src 'self'; frame-src https://www.google.com; object-src 'none'; base-uri 'self'; form-action 'self'; frame-ancestors 'self'; upgrade-insecure-requests"
+    # Content-Security-Policy is sent by PHP (includes/helpers.php), because
+    # every HTML page is PHP and PDFs need a different policy.
     Header always unset X-Powered-By
     Header unset X-Powered-By
 </IfModule>

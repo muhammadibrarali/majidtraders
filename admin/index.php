@@ -14,7 +14,9 @@ $count = static function (string $table) use ($pdo): array {
     return [(int) $row['total'], (int) $row['published']];
 };
 
+$mediaCount = (int) $pdo->query('SELECT COUNT(*) FROM media')->fetchColumn();
 $stats = [
+    ['Services',   'briefcase', '/admin/services', ...$count('services')],
     ['Projects',   'building',  '/admin/projects', ...$count('projects')],
     ['Clients',    'handshake', '/admin/clients',  ...$count('clients')],
     ['Team',       'users',     '/admin/team',     ...$count('team_members')],
@@ -38,6 +40,12 @@ admin_page_start('Dashboard', 'dashboard', $admin);
         <span class="stat__sub"><?= $published ?> published</span>
       </a>
     <?php endforeach; ?>
+    <a class="stat" href="/admin/media">
+      <span class="stat__icon"><?= admin_icon('image') ?></span>
+      <span class="stat__value"><?= $mediaCount ?></span>
+      <span class="stat__label">Media files</span>
+      <span class="stat__sub">images &amp; PDFs</span>
+    </a>
     <a class="stat stat--accent" href="/admin/messages">
       <span class="stat__icon"><?= admin_icon('mail') ?></span>
       <span class="stat__value"><?= $unread ?></span>

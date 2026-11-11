@@ -32,6 +32,12 @@ if (preg_match('#^/(?:(admin)/)?([a-z0-9]+(?:-[a-z0-9]+)*)/?$#', $path, $m)
     }
 }
 
+// Media Library files: /media/12/name.webp, /media/12/sm/name.webp, /media/15/name.pdf
+if (preg_match('#^/media/\d+/#', $path)) {
+    require ROOT_PATH . '/media.php';
+    return;
+}
+
 // Detail pages (e.g. /projects/school-renovation-mardan) will be added here
 // when those pages are built.
 

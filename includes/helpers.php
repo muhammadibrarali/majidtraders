@@ -54,3 +54,44 @@ function show_error_page(int $code): never
     require ROOT_PATH . '/error.php';
     exit;
 }
+
+/**
+ * Turn any text into a clean web-address part:
+ * "Import & Export (Mardan)" -> "import-and-export-mardan"
+ */
+function slugify(string $text, int $maxLength = 160): string
+{
+    $text = html_entity_decode($text, ENT_QUOTES | ENT_HTML5, 'UTF-8');
+    if (function_exists('transliterator_transliterate')) {
+        $t = transliterator_transliterate('Any-Latin; Latin-ASCII', $text);
+        if (is_string($t)) {
+            $text = $t;
+        }
+    } elseif (function_exists('iconv')) {
+        $t = @iconv('UTF-8', 'ASCII//TRANSLIT//IGNORE', $text);
+        if (is_string($t)) {
+            $text = $t;
+        }
+    }
+    $text = strtolower($text);
+    $text = str_replace(['&', '@'], [' and ', ' at '], $text);
+    $text = preg_replace('/[^a-z0-9]+/', '-', $text) ?? '';
+    $text = trim($text, '-');
+    if (strlen($text) > $maxLength) {
+        $text = rtrim(substr($text, 0, $maxLength), '-');
+    }
+    return $text;
+}
+
+// ---------------------------------------------------------------------------
+// Content-Security-Policy (sent by PHP so special responses, such as PDFs,
+// can use a different policy). Other security headers live in .htaccess.
+// Inline <script>/<style> and style="" attributes are NOT allowed.
+// ---------------------------------------------------------------------------
+const SITE_CSP = "default-src 'self'; script-src 'self' https://cdn.jsdelivr.net; style-src 'self'; "
+    . "img-src 'self' data: blob:; font-src 'self'; connect-src 'self'; frame-src https://www.google.com; "
+    . "object-src 'none'; base-uri 'self'; form-action 'self'; frame-ancestors 'self'; upgrade-insecure-requests";
+
+if (PHP_SAPI !== 'cli' && !headers_sent()) {
+    header('Content-Security-Policy: ' . SITE_CSP);
+}

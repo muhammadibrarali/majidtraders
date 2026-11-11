@@ -208,14 +208,36 @@ function current_admin(): ?array
     return $cached = $user;
 }
 
+/** Did the browser's script ask for a JSON answer (media picker, uploads)? */
+function wants_json(): bool
+{
+    return ($_GET['format'] ?? $_POST['format'] ?? '') === 'json'
+        || str_contains((string) ($_SERVER['HTTP_ACCEPT'] ?? ''), 'application/json');
+}
+
+/** Send a JSON answer and stop. */
+function json_response(array $data, int $status = 200): never
+{
+    http_response_code($status);
+    header('Content-Type: application/json; charset=utf-8');
+    echo json_encode($data, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE | JSON_INVALID_UTF8_SUBSTITUTE);
+    exit;
+}
+
 /** Use at the top of every protected admin page. */
 function require_admin(): array
 {
     admin_headers();
     $admin = current_admin();
     if ($admin === null) {
+        if (wants_json()) {
+            json_response(['ok' => false, 'error' => 'Your session has ended. Please reload the page and log in again.'], 401);
+        }
         redirect('/admin/login');
     }
+    // Apply any pending small database upgrades (runs once per upgrade).
+    require_once __DIR__ . '/migrations.php';
+    run_migrations();
     return $admin;
 }
 

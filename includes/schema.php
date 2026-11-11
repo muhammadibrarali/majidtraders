@@ -14,14 +14,14 @@
  */
 declare(strict_types=1);
 
-const MT_TABLE_OPTIONS = 'ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci';
-const MT_TIMESTAMPS = "
+defined('MT_TABLE_OPTIONS') || define('MT_TABLE_OPTIONS', 'ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci');
+defined('MT_TIMESTAMPS') || define('MT_TIMESTAMPS', "
     created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP";
-const MT_STATUS = "status ENUM('draft','published') NOT NULL DEFAULT 'draft'";
-const MT_SEO = "
+    updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP");
+defined('MT_STATUS') || define('MT_STATUS', "status ENUM('draft','published') NOT NULL DEFAULT 'draft'");
+defined('MT_SEO') || define('MT_SEO', "
     meta_title VARCHAR(160) NULL,
-    meta_description VARCHAR(300) NULL";
+    meta_description VARCHAR(300) NULL");
 
 return [
 
@@ -59,6 +59,7 @@ return [
     id INT UNSIGNED NOT NULL AUTO_INCREMENT,
     file_name VARCHAR(100) NOT NULL,
     original_name VARCHAR(255) NOT NULL,
+    title VARCHAR(190) NULL,
     mime_type VARCHAR(100) NOT NULL,
     kind ENUM('image','document') NOT NULL DEFAULT 'image',
     size_bytes INT UNSIGNED NOT NULL DEFAULT 0,
@@ -114,6 +115,20 @@ return [
     UNIQUE KEY uq_services_slug (slug),
     KEY idx_services_list (status, sort_order),
     CONSTRAINT fk_services_image FOREIGN KEY (image_id) REFERENCES media (id) ON DELETE SET NULL
+) " . MT_TABLE_OPTIONS,
+
+// Gallery: optional extra photos per service
+'service_images' => "CREATE TABLE IF NOT EXISTS service_images (
+    id INT UNSIGNED NOT NULL AUTO_INCREMENT,
+    service_id INT UNSIGNED NOT NULL,
+    media_id INT UNSIGNED NOT NULL,
+    caption VARCHAR(255) NULL,
+    sort_order INT NOT NULL DEFAULT 0," . MT_TIMESTAMPS . ",
+    PRIMARY KEY (id),
+    UNIQUE KEY uq_service_media (service_id, media_id),
+    KEY idx_service_images_order (service_id, sort_order),
+    CONSTRAINT fk_simg_service FOREIGN KEY (service_id) REFERENCES services (id) ON DELETE CASCADE,
+    CONSTRAINT fk_simg_media FOREIGN KEY (media_id) REFERENCES media (id) ON DELETE CASCADE
 ) " . MT_TABLE_OPTIONS,
 
 // ---------------------------------------------------------------- clients

@@ -38,7 +38,7 @@ These rules apply to EVERY task in this repository. Read them before changing an
 - Secure session cookies (HttpOnly, Secure, SameSite=Lax); regenerate session ID on login. Login rate limiting and lockout.
 - Upload validation: real MIME check, size limit, re-encode images, random file names, never executable.
 - Security headers: HSTS, Content-Security-Policy, X-Content-Type-Options, frame-ancestors, Referrer-Policy, Permissions-Policy. Force HTTPS and non-www.
-  - The CSP lives in `.htaccess`. Inline `<script>`/`<style>` and `style=""` attributes are NOT allowed by it — put CSS/JS in `/assets`. If a new external service is added (map, analytics, fonts), update the CSP.
+  - The CSP is sent by PHP (`SITE_CSP` in `includes/helpers.php`, so media.php can send a PDF-friendly one); the other headers are in `.htaccess`. Inline `<script>`/`<style>` and `style=""` attributes are NOT allowed — put CSS/JS in `/assets`. If a new external service is added (map, analytics, fonts), update `SITE_CSP`.
 - Block web access to hidden files, .git, .md, .sql, `/includes` and `/lib`. Admin pages `noindex`. Never show PHP errors to visitors; show friendly error pages (`error.php`).
 
 ## SEO (always)
@@ -54,7 +54,20 @@ These rules apply to EVERY task in this repository. Read them before changing an
 ## Database
 - Design lives in `includes/schema.php`. Tables: admin_users, login_attempts, media, settings (key/value), counters, services, clients, project_categories, projects, project_images, team_members, blog_categories, blog_posts, certifications, testimonials, contact_messages.
 - Content tables have `status` ('draft'/'published'), `sort_order`, `created_at`, `updated_at`; slugs are UNIQUE.
-- Setup is complete on the live site and admin/setup.php was deleted. To add/change tables later: update schema.php AND add a small, admin-only upgrade step.
+- Setup is complete on the live site and admin/setup.php was deleted.
+- Upgrades: `includes/migrations.php` runs numbered steps automatically when an admin opens any admin page (`settings.schema_version`, currently 2). To change the database: update schema.php (fresh installs) AND add the next numbered, idempotent step to migrations.php (bump SCHEMA_VERSION).
+- v2 added: `media.title`, `service_images` (service gallery), all Site Settings keys, company details, 3 starter services (drafts).
+- Settings are key/value (`includes/settings.php`: `setting()`, `save_settings()`); media references in settings store the media ID (keys listed in `media_setting_keys()`).
+
+## Admin pattern (reuse for every content section)
+- `includes/admin_crud.php` → `crud_run([...])`: list (thumbnail, status badge, search, status filter, pagination, up/down order), add/edit form (help text, validation, auto slug + uniqueness, Draft/Published, position, SEO title + meta description with counters and Google preview, unsaved-changes warning, success flash), delete confirmation page. All changes POST + CSRF. See `admin/services.php` for a complete example.
+- Field types: text, slug, textarea, richtext, icon, select, switch, media (single file picker), gallery (ordered images in a link table). Renderers live in `includes/admin_form.php`.
+- Rich text: local editor in `assets/js/admin.js`; every saved HTML goes through `clean_html()` (`includes/sanitize.php`, HTML Purifier 4.19.1 in `lib/htmlpurifier`, allow-list: p, br, strong/b, em/i, u, s, h2–h4, ul/ol/li, blockquote, hr, a[href], img[src|alt] from this site only).
+- When adding a content table that references media, also add it to `media_usage()` in `includes/media_lib.php` (delete warnings).
+
+## Media Library
+- Upload rules: JPG/PNG/WebP/PDF, max 8 MB, real type checked with finfo, images decoded + re-encoded to WebP (EXIF/GPS removed, rotation applied), sizes lg 1920 / md 1024 / sm 400, random names in `../private/uploads/<2 chars>/`. Alt text required for images.
+- Public URLs: `/media/<id>/<slug>.webp`, `/media/<id>/md/…`, `/media/<id>/sm/…`, `/media/<id>/<slug>.pdf` → router.php → media.php (no session, 1-year immutable cache, ETag/304, PDFs inline). Use `media_url($row, 'md')` in templates.
 
 ## Pages (built step by step)
 Home, About, Services (+ detail pages), Projects (+ detail pages), Clients, Team, Blog (+ posts), Certifications & Registrations, Contact (form + WhatsApp + map), Privacy Policy, plus a Staff Login link to portal.majidtraders.org.
@@ -67,6 +80,7 @@ Home, About, Services (+ detail pages), Projects (+ detail pages), Clients, Team
 ├── index.php         home page
 ├── error.php         friendly error page (403/404/500/503)
 ├── router.php        clean-URL router: .htaccess sends every non-file address here
+├── media.php         serves Media Library files (/media/<id>/...)
 ├── robots.txt
 ├── config.example.php  template for ../private/config.php (placeholders only)
 ├── assets/
@@ -77,9 +91,17 @@ Home, About, Services (+ detail pages), Projects (+ detail pages), Clients, Team
 │   ├── helpers.php   e(), is_https(), show_error_page() — no DB/config needed
 │   ├── bootstrap.php loads ../private/config.php, secure session, db() PDO, CSRF helpers
 │   ├── auth.php      admin login, 5-tries/15-min lockout, 30-min idle logout, require_admin()
-│   ├── admin_layout.php  admin sidebar layout, icons, "coming soon" placeholder
+│   ├── admin_layout.php  admin sidebar layout, "coming soon" placeholder
+│   ├── admin_crud.php    reusable list/edit/delete/reorder manager (crud_run)
+│   ├── admin_form.php    reusable form fields (text, slug, richtext, media picker, gallery…)
+│   ├── icons.php     inline SVG icon set (admin + public site), service icon choices
+│   ├── media_lib.php uploads, WebP sizes, media_url(), media_usage(), media_delete()
+│   ├── migrations.php automatic numbered database upgrades
+│   ├── sanitize.php  clean_html() via HTML Purifier
+│   ├── settings.php  setting(), save_settings()
 │   └── schema.php    full database design (CREATE TABLE IF NOT EXISTS ...)
-├── lib/              third-party PHP libraries (e.g. PHPMailer) — blocked from web
+├── lib/              third-party PHP libraries — blocked from web
+│   └── htmlpurifier/ HTML Purifier 4.19.1 (LGPL-2.1, library folder only)
 └── admin/            admin panel (noindex + no-cache sent by PHP admin_headers(); local CSS/JS only, no CDN)
     ├── index.php     dashboard          ├── login.php / logout.php (logout = POST + CSRF)
     ├── password.php  change password (logs out other sessions)
@@ -88,6 +110,7 @@ Home, About, Services (+ detail pages), Projects (+ detail pages), Clients, Team
 ../private/           OUTSIDE the website, never in git
 ├── config.php
 ├── sessions/         PHP session files (created automatically)
+├── cache/            HTML Purifier cache (created automatically)
 └── uploads/
 ```
 

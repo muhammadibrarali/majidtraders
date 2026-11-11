@@ -63,7 +63,8 @@ date_default_timezone_set((string) config('site.timezone', 'Asia/Karachi'));
 // ---------------------------------------------------------------------------
 // 2) Secure session
 // ---------------------------------------------------------------------------
-if (session_status() === PHP_SESSION_NONE) {
+// Pages that must not create a session (e.g. media.php, for caching) define MT_NO_SESSION first.
+if (session_status() === PHP_SESSION_NONE && !defined('MT_NO_SESSION')) {
     ini_set('session.use_strict_mode', '1');
     ini_set('session.use_only_cookies', '1');
     ini_set('session.use_trans_sid', '0');

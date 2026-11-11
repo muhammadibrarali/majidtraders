@@ -3,7 +3,8 @@
  * TEMPORARY home page: "New website coming soon".
  * Will be replaced by the real home page in a later step.
  */
-require __DIR__ . '/includes/bootstrap.php';
+// The coming-soon page needs no database, so it only loads the small helpers.
+require __DIR__ . '/includes/helpers.php';
 
 $title       = 'Majid Traders – New website coming soon';
 $description = 'Majid Traders, Mardan (KP, Pakistan): import & export, government & private contracting, and general order supply. Our new website is coming soon.';

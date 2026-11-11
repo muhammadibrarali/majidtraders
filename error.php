@@ -1,15 +1,14 @@
 <?php
 /** Friendly error page for 403 / 404 / 500. Never shows technical details. */
-if (!function_exists('e')) {
-    require __DIR__ . '/includes/bootstrap.php';
-}
+require_once __DIR__ . '/includes/helpers.php';
 
 $messages = [
     403 => ['Access denied',  'Sorry, you don’t have permission to view this page.'],
     404 => ['Page not found', 'The page you’re looking for doesn’t exist or has moved.'],
     500 => ['Something went wrong', 'We’re having a temporary problem. Please try again in a few minutes.'],
+    503 => ['We’ll be right back', 'The website is being set up or updated. Please try again in a few minutes.'],
 ];
-$code = (int) ($_GET['code'] ?? ($_SERVER['REDIRECT_STATUS'] ?? 404));
+$code = (int) ($GLOBALS['error_code'] ?? $_GET['code'] ?? $_SERVER['REDIRECT_STATUS'] ?? 404);
 if (!isset($messages[$code])) {
     $code = 404;
 }

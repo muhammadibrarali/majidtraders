@@ -1,0 +1,42 @@
+/* Admin area styles (setup, login, panel) */
+:root {
+  --orange: #F26B1D;
+  --orange-dark: #D9590F;
+  --charcoal: #1E2124;
+  --charcoal-2: #2A2E33;
+  --bg: #F5F4F2;
+  --card: #FFFFFF;
+  --text: #1E2124;
+  --muted: #5F646B;
+  --border: #DEDCD8;
+  --ok-bg: #EAF6EE; --ok: #1F7A3E;
+  --err-bg: #FDECEC; --err: #B42318;
+  --font: "Segoe UI", system-ui, -apple-system, Roboto, "Helvetica Neue", Arial, sans-serif;
+}
+*, *::before, *::after { box-sizing: border-box; }
+html, body { margin: 0; }
+body { font-family: var(--font); color: var(--text); background: var(--bg); line-height: 1.5; -webkit-font-smoothing: antialiased; }
+
+.auth { min-height: 100vh; display: grid; place-items: center; padding: 1.5rem 1rem; background: var(--charcoal); }
+.auth__card { width: 100%; max-width: 30rem; background: var(--card); border-radius: 1.25rem; padding: clamp(1.5rem, 5vw, 2.5rem); box-shadow: 0 30px 80px -30px rgba(0,0,0,.6); border-top: 6px solid var(--orange); }
+.auth__logo { display: inline-grid; place-items: center; width: 3.25rem; aspect-ratio: 1; border-radius: .85rem; background: var(--orange); color: var(--charcoal); font-weight: 900; font-size: 1.3rem; letter-spacing: -.04em; margin-bottom: 1rem; }
+.auth h1 { margin: 0 0 .5rem; font-size: clamp(1.5rem, 5vw, 1.9rem); letter-spacing: -.02em; }
+
+.muted { color: var(--muted); }
+.hint { color: var(--muted); font-weight: 400; font-size: .85em; }
+code { background: #F0EEEA; padding: .05em .35em; border-radius: .3em; font-size: .9em; }
+
+.notice { border-radius: .75rem; padding: .75rem 1rem; margin: 1rem 0; }
+.notice p { margin: 0; }
+.notice ul { margin: .4rem 0 0; padding-left: 1.2rem; }
+.notice--ok { background: var(--ok-bg); color: var(--ok); }
+.notice--error { background: var(--err-bg); color: var(--err); }
+
+.form { display: grid; gap: .35rem; margin-top: 1.25rem; }
+.form label { font-weight: 600; margin-top: .75rem; }
+.form input { width: 100%; font: inherit; padding: .75rem .9rem; border: 1px solid var(--border); border-radius: .65rem; background: #fff; color: var(--text); }
+.form input:focus { outline: none; border-color: var(--orange); box-shadow: 0 0 0 3px rgba(242,107,29,.25); }
+
+.btn { margin-top: 1.5rem; font: inherit; font-weight: 700; padding: .9rem 1.4rem; border: 0; border-radius: 999px; background: var(--orange); color: var(--charcoal); cursor: pointer; }
+.btn:hover, .btn:focus-visible { background: var(--orange-dark); color: #fff; }
+:focus-visible { outline: 2px solid var(--orange); outline-offset: 3px; }

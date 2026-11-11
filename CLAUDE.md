@@ -50,6 +50,11 @@ These rules apply to EVERY task in this repository. Read them before changing an
 - Mobile-first, fully responsive.
 - Brand colours (CSS custom properties): orange `#F26B1D`, charcoal `#1E2124`.
 
+## Database
+- Design lives in `includes/schema.php`. Tables: admin_users, login_attempts, media, settings (key/value), counters, services, clients, project_categories, projects, project_images, team_members, blog_categories, blog_posts, certifications, testimonials, contact_messages.
+- Content tables have `status` ('draft'/'published'), `sort_order`, `created_at`, `updated_at`; slugs are UNIQUE.
+- To add/change tables later: add the change to schema.php AND write a small upgrade step (setup.php refuses to run once an admin exists).
+
 ## Pages (built step by step)
 Home, About, Services (+ detail pages), Projects (+ detail pages), Clients, Team, Blog (+ posts), Certifications & Registrations, Contact (form + WhatsApp + map), Privacy Policy, plus a Staff Login link to portal.majidtraders.org.
 
@@ -66,9 +71,14 @@ Home, About, Services (+ detail pages), Projects (+ detail pages), Clients, Team
 │   ├── css/          stylesheets
 │   ├── js/           scripts
 │   └── img/          logo, favicon, static design images (not uploads)
-├── includes/         shared PHP (bootstrap, header, footer, helpers) — blocked from web
+├── includes/         shared PHP — blocked from web
+│   ├── helpers.php   e(), is_https(), show_error_page() — no DB/config needed
+│   ├── bootstrap.php loads ../private/config.php, secure session, db() PDO, CSRF helpers
+│   ├── schema.php    full database design (CREATE TABLE IF NOT EXISTS ...)
+│   └── install.php   table creation + default settings (used by admin/setup.php)
 ├── lib/              third-party PHP libraries (e.g. PHPMailer) — blocked from web
-└── admin/            admin panel (later)
+└── admin/            admin panel (noindex via admin/.htaccess)
+    └── setup.php     one-time setup: creates tables + first admin, then locks itself forever
 
 ../private/           OUTSIDE the website, never in git
 ├── config.php

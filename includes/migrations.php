@@ -11,7 +11,7 @@
  */
 declare(strict_types=1);
 
-const SCHEMA_VERSION = 5;
+const SCHEMA_VERSION = 6;
 
 function column_exists(PDO $pdo, string $table, string $column): bool
 {
@@ -251,6 +251,66 @@ function migration_steps(): array
             ['clients_page_lead', 'Government departments and private organisations that trust Majid Traders with their projects and supplies.', 'pages', 'Clients page intro'],
             ['clients_page_image_id', '', 'pages', 'Clients header image'],
             ['clients_meta_description', 'Clients of Majid Traders, Mardan: federal and provincial government departments, semi-government bodies and private organisations.', 'pages', 'Clients Google description'],
+        ];
+        $insert = $pdo->prepare('INSERT IGNORE INTO settings (setting_key, setting_value, setting_group, label) VALUES (?, ?, ?, ?)');
+        foreach ($keys as $row) {
+            $insert->execute($row);
+        }
+    },
+
+    // ------------------------------------------------------------------ v6
+    // Page headers for Team, Blog and Certifications + the Privacy Policy
+    // (Site Settings › Page headers / Legal). Starter text only.
+    6 => static function (PDO $pdo): void {
+        $privacy = <<<'HTML'
+<p>This Privacy Policy explains how <strong>Majid Traders</strong> (“we”, “us”, “our”), Mardan, Khyber Pakhtunkhwa, Pakistan, collects, uses and protects personal information when you visit majidtraders.org or contact us.</p>
+<h2>Information we collect</h2>
+<ul>
+<li><strong>Information you give us:</strong> when you use our contact or quotation form, send us an email or message us on WhatsApp, we receive the details you provide — for example your name, phone number, email address, company or department, and the content of your message or tender requirements.</li>
+<li><strong>Technical information:</strong> like most websites, our hosting provider records basic technical data such as your IP address, browser type and the pages you visit, for security and to keep the website working.</li>
+</ul>
+<h2>Cookies</h2>
+<p>Our public website does not use advertising or tracking cookies. A small technical cookie is used only in our private administration area by our own staff.</p>
+<h2>How we use your information</h2>
+<ul>
+<li>To reply to your enquiry and prepare quotations or proposals.</li>
+<li>To deliver the goods, services or projects you have requested.</li>
+<li>To keep records required for accounting, tax and government procurement purposes.</li>
+<li>To protect our website against misuse and fraud.</li>
+</ul>
+<p>We do not sell or rent your personal information, and we do not send marketing messages without your permission.</p>
+<h2>Sharing your information</h2>
+<p>We only share personal information when it is needed to provide our services (for example with transport or logistics partners), with our IT and hosting providers who process data on our behalf, or when required by law or by a competent authority in Pakistan.</p>
+<h2>How long we keep information</h2>
+<p>We keep enquiries and business records only for as long as needed for the purposes above and to meet our legal, tax and contractual obligations. After that, information is deleted or anonymised.</p>
+<h2>How we protect your information</h2>
+<p>Our website uses an encrypted (HTTPS) connection, and access to stored messages is limited to authorised staff with secure passwords. No system is completely secure, but we take reasonable steps to protect your information.</p>
+<h2>Your choices and rights</h2>
+<p>You can ask us to see, correct or delete the personal information we hold about you, or ask us to stop contacting you, by using the contact details below. We will respond within a reasonable time.</p>
+<h2>Applicable law</h2>
+<p>We handle personal information in line with the applicable laws of Pakistan, including the Prevention of Electronic Crimes Act, 2016.</p>
+<h2>Links to other websites</h2>
+<p>Our website may link to other websites (for example WhatsApp, Facebook or LinkedIn). We are not responsible for the privacy practices of those websites.</p>
+<h2>Changes to this policy</h2>
+<p>We may update this Privacy Policy from time to time. The “last updated” date at the top of this page shows when it was last changed.</p>
+HTML;
+        $keys = [
+            ['team_page_title', 'Our team', 'pages', 'Team page title'],
+            ['team_page_lead', 'The engineers, buyers and field staff who deliver every project and order on time.', 'pages', 'Team page intro'],
+            ['team_page_image_id', '', 'pages', 'Team header image'],
+            ['team_meta_description', 'Meet the team of Majid Traders, Mardan: management, engineering, procurement, accounts and field staff.', 'pages', 'Team Google description'],
+            ['blog_page_title', 'News & insights', 'pages', 'Blog page title'],
+            ['blog_page_lead', 'Company news, completed projects and practical tips on tenders, supply and contracting in Khyber Pakhtunkhwa.', 'pages', 'Blog page intro'],
+            ['blog_page_image_id', '', 'pages', 'Blog header image'],
+            ['blog_meta_description', 'News and insights from Majid Traders, Mardan: projects, tenders, supply and contracting in Khyber Pakhtunkhwa.', 'pages', 'Blog Google description'],
+            ['certifications_page_title', 'Certifications & registrations', 'pages', 'Certifications page title'],
+            ['certifications_page_lead', 'Our official registrations and certificates — valid and up to date.', 'pages', 'Certifications page intro'],
+            ['certifications_page_image_id', '', 'pages', 'Certifications header image'],
+            ['certifications_meta_description', 'Certifications and registrations of Majid Traders, Mardan: PEC, FBR, KPPRA and other official registrations.', 'pages', 'Certifications Google description'],
+            ['privacy_page_title', 'Privacy Policy', 'legal', 'Privacy page title'],
+            ['privacy_updated', date('Y-m-d'), 'legal', 'Privacy policy last updated'],
+            ['privacy_body', $privacy, 'legal', 'Privacy policy text'],
+            ['privacy_meta_description', 'How Majid Traders collects, uses and protects personal information on majidtraders.org and through our contact form.', 'legal', 'Privacy Google description'],
         ];
         $insert = $pdo->prepare('INSERT IGNORE INTO settings (setting_key, setting_value, setting_group, label) VALUES (?, ?, ?, ?)');
         foreach ($keys as $row) {

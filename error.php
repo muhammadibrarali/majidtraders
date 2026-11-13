@@ -17,6 +17,29 @@ if (!headers_sent()) {
     http_response_code($code);
     header('Cache-Control: no-store'); // never let a cache keep an error page
 }
+
+// Public "Page not found" in the website design (when the website is live or
+// the admin is previewing). Admin, media and asset addresses keep this simple page.
+if ($code === 404 && empty($GLOBALS['mt_in_404'])) {
+    $reqPath = (string) parse_url((string) ($_SERVER['REQUEST_URI'] ?? '/'), PHP_URL_PATH);
+    if (!preg_match('#^/(admin|media|assets|includes|lib)(/|$)#', $reqPath) && is_file(PRIVATE_PATH . '/config.php')) {
+        $GLOBALS['mt_in_404'] = true;
+        try {
+            if (!function_exists('site_head')) {
+                if (!defined('MT_PUBLIC_PAGE') && !function_exists('db')) {
+                    define('MT_PUBLIC_PAGE', true);
+                }
+                require_once ROOT_PATH . '/includes/site.php';
+            }
+            if (site_is_live() || site_is_preview()) {
+                require ROOT_PATH . '/includes/not_found.php';
+                exit;
+            }
+        } catch (Throwable $ex) {
+            error_log('[majidtraders] 404 page fallback: ' . $ex->getMessage());
+        }
+    }
+}
 ?><!doctype html>
 <html lang="en">
 <head>

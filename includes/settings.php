@@ -59,5 +59,8 @@ function media_setting_keys(): array
         'services_page_image_id' => 'Site Settings › Page headers › Services image',
         'projects_page_image_id' => 'Site Settings › Page headers › Projects image',
         'clients_page_image_id' => 'Site Settings › Page headers › Clients image',
+        'team_page_image_id'    => 'Site Settings › Page headers › Team image',
+        'blog_page_image_id'    => 'Site Settings › Page headers › Blog image',
+        'certifications_page_image_id' => 'Site Settings › Page headers › Certifications image',
     ];
 }

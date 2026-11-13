@@ -28,7 +28,7 @@ if (!$projects) { // nothing marked "feature on home page" yet: show the latest 
                              WHERE p.status = 'published' ORDER BY p.sort_order, p.id LIMIT 6")->fetchAll();
 }
 $certs = $pdo->query("SELECT id, title, slug, issuing_authority, registration_number, grade, show_number, document_id
-                      FROM certifications WHERE status = 'published' ORDER BY sort_order, id")->fetchAll();
+                      FROM certifications WHERE status = 'published' AND (expiry_date IS NULL OR expiry_date >= CURDATE()) ORDER BY sort_order, id")->fetchAll();
 $testimonials = $pdo->query("SELECT quote, author_name, author_position, organization, photo_id
                              FROM testimonials WHERE status = 'published' ORDER BY sort_order, id")->fetchAll();
 $posts = $pdo->query("SELECT b.title, b.slug, b.excerpt, b.cover_image_id, b.published_at, b.reading_minutes, bc.name AS category_name

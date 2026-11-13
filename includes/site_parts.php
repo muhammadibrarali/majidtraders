@@ -159,7 +159,7 @@ function render_counters(): string
 function render_cert_list(?array $certs = null): string
 {
     $certs ??= db()->query("SELECT id, title, slug, issuing_authority, registration_number, grade, show_number, document_id
-                            FROM certifications WHERE status = 'published' ORDER BY sort_order, id")->fetchAll();
+                            FROM certifications WHERE status = 'published' AND (expiry_date IS NULL OR expiry_date >= CURDATE()) ORDER BY sort_order, id")->fetchAll();
     if (!$certs) {
         return '';
     }
@@ -296,4 +296,132 @@ function setting_media(string $key): ?array
 {
     $id = setting_media_id($key);
     return $id ? (site_media([$id])[$id] ?? null) : null;
+}
+
+
+// ---------------------------------------------------------------------------
+// Team
+// ---------------------------------------------------------------------------
+
+/** Department order on the Team page (same list as the admin). */
+function team_departments(): array
+{
+    return ['Management', 'Engineering', 'Procurement', 'Accounts', 'Field Staff', 'Administration', 'Sales & Marketing', 'Logistics'];
+}
+
+// ---------------------------------------------------------------------------
+// Blog
+// ---------------------------------------------------------------------------
+
+/** SELECT for blog cards: category + author (team member first, else admin). */
+const POST_CARD_SQL = "SELECT b.id, b.title, b.slug, b.excerpt, b.cover_image_id, b.published_at, b.reading_minutes, b.is_featured, b.tags,
+                              bc.name AS category_name, bc.slug AS category_slug,
+                              COALESCE(tm.name, au.name) AS author_name, tm.photo_id AS author_photo_id, tm.position AS author_position
+                       FROM blog_posts b
+                       LEFT JOIN blog_categories bc ON bc.id = b.category_id AND bc.status = 'published'
+                       LEFT JOIN team_members tm ON tm.id = b.author_team_id AND tm.status = 'published'
+                       LEFT JOIN admin_users au ON au.id = b.author_id";
+
+/** SQL condition: published and the publish date has come. */
+const POST_LIVE_SQL = "b.status = 'published' AND (b.published_at IS NULL OR b.published_at <= NOW())";
+
+/** Tags "Supply, Tenders" -> [['Supply', 'supply'], ['Tenders', 'tenders']] */
+function post_tags(?string $tags): array
+{
+    $out = [];
+    foreach (explode(',', (string) $tags) as $t) {
+        $t = trim($t);
+        if ($t !== '' && ($slug = slugify($t, 60)) !== '') {
+            $out[$slug] = [$t, $slug];
+        }
+    }
+    return array_values($out);
+}
+
+function post_date(?string $date): string
+{
+    return $date ? date('j M Y', strtotime($date)) : '';
+}
+
+/** Blog card. $variant 'featured' = large horizontal card. */
+function post_card_html(array $p, ?array $cover, string $variant = ''): string
+{
+    $url = '/blog/' . rawurlencode($p['slug']);
+    $meta = '';
+    if ($p['category_name']) {
+        $meta .= '<span class="badge">' . e($p['category_name']) . '</span>';
+    }
+    if ($p['published_at']) {
+        $meta .= '<time datetime="' . e(date('c', strtotime((string) $p['published_at']))) . '">' . e(post_date($p['published_at'])) . '</time>';
+    }
+    if ($p['reading_minutes']) {
+        $meta .= '<span>' . (int) $p['reading_minutes'] . ' min read</span>';
+    }
+    return '<article class="post-card' . ($variant ? ' post-card--' . $variant : '') . '" data-reveal-item><a href="' . e($url) . '" class="post-card__link">'
+        . '<span class="post-card__media">' . ($cover ? media_img($cover, ['sizes' => $variant === 'featured' ? '(min-width: 1024px) 55vw, 100vw' : '(min-width: 1024px) 30vw, (min-width: 640px) 50vw, 100vw', 'alt' => '']) : '<span class="post-card__placeholder">' . icon_svg('pen', 36) . '</span>') . '</span>'
+        . '<span class="post-card__body">'
+        . ($variant === 'featured' ? '<span class="eyebrow">Featured</span>' : '')
+        . '<span class="post-card__meta">' . $meta . '</span>'
+        . '<h3 class="post-card__title">' . e($p['title']) . '</h3>'
+        . ($p['excerpt'] ? '<p class="post-card__text">' . e($p['excerpt']) . '</p>' : '')
+        . ($p['author_name'] ? '<span class="post-card__author">By ' . e($p['author_name']) . '</span>' : '')
+        . '</span></a></article>';
+}
+
+/**
+ * Add id="…" to every h2/h3 of a post and build a table of contents.
+ * Returns [html with ids, [[level, id, text], …]].
+ */
+function post_toc(string $html): array
+{
+    if (trim($html) === '' || !class_exists('DOMDocument')) {
+        return [$html, []];
+    }
+    $doc = new DOMDocument();
+    $prev = libxml_use_internal_errors(true);
+    $doc->loadHTML('<?xml encoding="utf-8"?><div id="mt-root">' . $html . '</div>', LIBXML_HTML_NOIMPLIED | LIBXML_HTML_NODEFDTD);
+    libxml_clear_errors();
+    libxml_use_internal_errors($prev);
+    $toc = [];
+    $used = [];
+    $xpath = new DOMXPath($doc);
+    foreach ($xpath->query('//h2|//h3') as $h) {
+        $text = trim($h->textContent);
+        if ($text === '') {
+            continue;
+        }
+        $id = slugify($text, 60) ?: 'section';
+        $base = $id;
+        for ($i = 2; isset($used[$id]); $i++) {
+            $id = $base . '-' . $i;
+        }
+        $used[$id] = true;
+        $h->setAttribute('id', $id);
+        $toc[] = [strtolower($h->nodeName) === 'h3' ? 3 : 2, $id, $text];
+    }
+    $root = $doc->getElementById('mt-root');
+    $out = '';
+    foreach ($root ? $root->childNodes : [] as $child) {
+        $out .= $doc->saveHTML($child);
+    }
+    return [$out !== '' ? $out : $html, $toc];
+}
+
+/** Share links (plain links — no third-party scripts). */
+function share_links_html(string $url, string $title): string
+{
+    $u = rawurlencode($url);
+    $t = rawurlencode($title);
+    $links = [
+        ['whatsapp', 'WhatsApp', 'https://wa.me/?text=' . rawurlencode($title . ' ' . $url)],
+        ['facebook', 'Facebook', 'https://www.facebook.com/sharer/sharer.php?u=' . $u],
+        ['linkedin', 'LinkedIn', 'https://www.linkedin.com/sharing/share-offsite/?url=' . $u],
+        ['x-social', 'X', 'https://x.com/intent/post?url=' . $u . '&text=' . $t],
+    ];
+    $html = '<div class="share" data-reveal><span class="share__label">Share</span><ul class="share__list">';
+    foreach ($links as [$icon, $label, $href]) {
+        $html .= '<li><a class="share__btn" href="' . e($href) . '" target="_blank" rel="noopener nofollow" aria-label="Share on ' . e($label) . '">' . icon_svg($icon, 20) . '</a></li>';
+    }
+    $html .= '<li><button type="button" class="share__btn" data-copy-link="' . e($url) . '" aria-label="Copy link" hidden>' . icon_svg('copy', 20) . '</button></li>';
+    return $html . '</ul><span class="share__done" data-copy-done aria-live="polite"></span></div>';
 }

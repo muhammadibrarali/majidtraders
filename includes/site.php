@@ -305,7 +305,7 @@ function site_head(array $meta): void
 <a class="skip-link" href="#main">Skip to content</a>
 <?php if ($draft): ?>
 <div class="preview-bar preview-bar--draft" role="status">
-  <span><strong>Draft – not public</strong><span class="preview-bar__long"> — only you can see this page because you are logged in.</span></span>
+  <span><strong><?= e($draft['label'] ?? 'Draft – not public') ?></strong><span class="preview-bar__long"> — only you can see this page because you are logged in.</span></span>
   <a href="<?= e($draft['edit']) ?>">Edit</a>
   <a href="/admin/">Admin</a>
 </div>

@@ -18,11 +18,13 @@ $tabs = [
     'home'     => 'Home page sections',
     'about'    => 'About page',
     'pages'    => 'Page headers',
+    'legal'    => 'Legal',
     'counters' => 'Counters',
     'seo'      => 'SEO defaults',
 ];
 // Page headers of the inner pages: prefix => page name
-$pageHeaders = ['services' => 'Services page', 'projects' => 'Projects page', 'clients' => 'Clients page'];
+$pageHeaders = ['services' => 'Services page', 'projects' => 'Projects page', 'clients' => 'Clients page',
+                'team' => 'Team page', 'blog' => 'Blog page', 'certifications' => 'Certifications page'];
 
 // Editable home page section texts: key => [label, max length, multi-line?]
 $homeTexts = [
@@ -238,6 +240,28 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 $errors[$pg . '_meta_description'] = 'Too long (maximum 300 characters; 120–160 is best).';
             }
             $save[$pg . '_page_image_id'] = (string) (post_media_id($pg . '_page_image_id') ?? '');
+        }
+    }
+
+    if ($tab === 'legal') {
+        $save = [
+            'privacy_page_title'       => post_str('privacy_page_title'),
+            'privacy_updated'          => post_str('privacy_updated'),
+            'privacy_meta_description' => post_str('privacy_meta_description'),
+            'privacy_body'             => clean_html((string) ($_POST['privacy_body'] ?? '')),
+        ];
+        if ($save['privacy_page_title'] === '' || mb_strlen($save['privacy_page_title']) > 120) {
+            $errors['privacy_page_title'] = 'Please enter a page title (maximum 120 characters).';
+        }
+        $d = DateTime::createFromFormat('!Y-m-d', $save['privacy_updated']);
+        if (!$d || $d->format('Y-m-d') !== $save['privacy_updated']) {
+            $errors['privacy_updated'] = 'Please choose a valid date.';
+        }
+        if (mb_strlen($save['privacy_meta_description']) > 300) {
+            $errors['privacy_meta_description'] = 'Too long (maximum 300 characters).';
+        }
+        if ($save['privacy_body'] === '') {
+            $errors['privacy_body'] = 'Please enter the privacy policy text.';
         }
     }
 
@@ -533,6 +557,18 @@ admin_page_start('Site Settings', 'settings', $admin);
       <?= field_textarea($pg . '_meta_description', 'Google description', $val($pg . '_meta_description'), ['max' => 300, 'rows' => 2, 'counter' => true, 'recommend' => [120, 160]], $errors) ?>
     </section>
     <?php endforeach; ?>
+
+<?php elseif ($tab === 'legal'): ?>
+    <section class="card form">
+      <h2>Privacy Policy</h2>
+      <p class="help">Shown at <a href="/privacy-policy" target="_blank" rel="noopener">/privacy-policy</a> (linked in the website footer). A sensible default is filled in — please read it and adjust it to how your company works. Your contact details are added automatically at the end of the page.</p>
+      <div class="form-grid">
+        <?= field_text('privacy_page_title', 'Page title', $val('privacy_page_title'), ['required' => true, 'max' => 120], $errors) ?>
+        <?= field_text('privacy_updated', 'Last updated', $val('privacy_updated'), ['type' => 'date', 'help' => 'Change this date whenever you change the text.'], $errors) ?>
+      </div>
+      <?= field_richtext('privacy_body', 'Policy text', $val('privacy_body'), [], $errors) ?>
+      <?= field_textarea('privacy_meta_description', 'Google description', $val('privacy_meta_description'), ['max' => 300, 'rows' => 2, 'counter' => true], $errors) ?>
+    </section>
 
 <?php elseif ($tab === 'status'): $isLive = $val('site_live') === '1'; ?>
     <section class="card form">

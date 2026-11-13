@@ -44,6 +44,13 @@ if (preg_match('#^/projects/category/([a-z0-9]+(?:-[a-z0-9]+)*)/?$#', $path, $m)
     return;
 }
 
+// Blog: /blog/category/<slug>, /blog/tag/<slug>, /blog/<slug>
+if (preg_match('#^/blog/(?:(category|tag)/)?([a-z0-9]+(?:-[a-z0-9]+)*)/?$#', $path, $m)) {
+    $GLOBALS['route_blog'] = ['type' => $m[1] !== '' ? $m[1] : 'post', 'slug' => $m[2]];
+    require ROOT_PATH . '/blog.php';
+    return;
+}
+
 // Detail pages: /services/<slug>, /projects/<slug>
 if (preg_match('#^/(services|projects)/([a-z0-9]+(?:-[a-z0-9]+)*)/?$#', $path, $m)) {
     $GLOBALS['route_slug'] = $m[2];

@@ -22,6 +22,9 @@ crud_run([
         $r['expiry_date'] ? 'Expires ' . date('j M Y', strtotime((string) $r['expiry_date'])) : '',
     ])),
     'list_badges' => static fn (array $r): array => cert_expiry_badge($r['expiry_date']),
+    // Expired certificates are hidden on the website, so no "View on site" link for them.
+    'is_live' => static fn (array $r): bool => $r['status'] === 'published'
+        && (empty($r['expiry_date']) || $r['expiry_date'] >= date('Y-m-d')),
     'validate' => static function (array $data, array $extra, array &$errors): void {
         if (!empty($data['issue_date']) && !empty($data['expiry_date']) && !isset($errors['issue_date']) && !isset($errors['expiry_date'])
             && $data['expiry_date'] < $data['issue_date']) {

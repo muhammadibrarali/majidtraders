@@ -146,6 +146,48 @@
     }
   });
 
+  // ------------------------------------------------------------------ team bios: read more / less
+  $$('[data-bio-toggle]').forEach(function (btn) {
+    var bio = document.getElementById(btn.getAttribute('aria-controls'));
+    if (!bio) return;
+    btn.hidden = false;
+    btn.addEventListener('click', function () {
+      var open = btn.getAttribute('aria-expanded') !== 'true';
+      bio.classList.toggle('is-clamped', !open);
+      btn.setAttribute('aria-expanded', open ? 'true' : 'false');
+      btn.textContent = open ? 'Show less' : 'Read more';
+    });
+  });
+
+  // ------------------------------------------------------------------ share: copy link
+  $$('[data-copy-link]').forEach(function (btn) {
+    if (!navigator.clipboard || !window.isSecureContext) return;
+    btn.hidden = false;
+    var done = btn.closest('.share') && $('[data-copy-done]', btn.closest('.share'));
+    btn.addEventListener('click', function () {
+      navigator.clipboard.writeText(btn.getAttribute('data-copy-link')).then(function () {
+        if (done) { done.textContent = 'Link copied'; setTimeout(function () { done.textContent = ''; }, 2500); }
+      });
+    });
+  });
+
+  // ------------------------------------------------------------------ table of contents: highlight current section
+  $$('[data-toc]').forEach(function (toc) {
+    var links = $$('a[href^="#"]', toc);
+    if (!links.length || !('IntersectionObserver' in window)) return;
+    var map = {};
+    links.forEach(function (a) { map[a.getAttribute('href').slice(1)] = a; });
+    var io = new IntersectionObserver(function (entries) {
+      entries.forEach(function (en) {
+        if (en.isIntersecting && map[en.target.id]) {
+          links.forEach(function (l) { l.classList.remove('is-active'); });
+          map[en.target.id].classList.add('is-active');
+        }
+      });
+    }, { rootMargin: '-20% 0px -70% 0px' });
+    Object.keys(map).forEach(function (id) { var h = document.getElementById(id); if (h) io.observe(h); });
+  });
+
   // ------------------------------------------------------------------ photo lightbox
   // Gallery links open a full-screen viewer: arrows / ← → keys / swipe, Esc to close.
   // Without JavaScript the links simply open the large photo.

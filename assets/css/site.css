@@ -264,7 +264,7 @@ body:not(.has-hero) main { padding-top: calc(var(--header-h) + 1px); }
 .social a:hover, .social a:focus-visible { background: var(--orange); color: var(--charcoal); border-color: var(--orange); transform: translateY(-2px); }
 
 /* Big faint wordmark (decoration only) */
-.site-footer__wordmark { margin: clamp(2.5rem, 1.5rem + 3vw, 4rem) 0 -.12em; padding: 0 var(--gutter); text-align: center; white-space: nowrap; font: 800 clamp(2.6rem, 11.5vw, 13rem)/.85 var(--font-display); letter-spacing: -.04em; color: rgba(255, 255, 255, .045); user-select: none; pointer-events: none; overflow: hidden; }
+.site-footer__wordmark { margin: clamp(1.75rem, 1rem + 2vw, 3rem) 0 -.1em; padding: 0 var(--gutter); text-align: center; white-space: nowrap; font: 800 clamp(1.9rem, 5.2vw, 5.5rem)/.85 var(--font-display); letter-spacing: -.04em; color: rgba(255, 255, 255, .045); user-select: none; pointer-events: none; overflow: hidden; }
 
 /* Bottom bar */
 .site-footer__bottom { border-top: 1px solid var(--line-dark); font-size: .85rem; }

@@ -350,7 +350,7 @@
   function reveal(targets, trigger, vars) {
     return gsap.from(targets, Object.assign({
       autoAlpha: 0, y: 40, duration: 1, ease: EASE, stagger: 0.08,
-      scrollTrigger: { trigger: trigger, start: 'top 88%', once: true }
+      scrollTrigger: { trigger: trigger, start: 'top 92%', once: true }
     }, vars || {}));
   }
 
@@ -454,6 +454,37 @@
       gsap.from(el, { autoAlpha: 0, duration: 0.6, ease: 'none', scrollTrigger: { trigger: el, start: 'top 92%', once: true } });
     });
   });
+
+  // ---- Safety net: content must ALWAYS end up visible.
+  // If a scroll animation never fires (odd scroll position, a browser hiccup,
+  // a section at the very bottom of the page), finish it shortly after the
+  // element is on screen so nothing stays invisible.
+  (function () {
+    var SEL = '[data-reveal], [data-reveal-item], [data-split], [data-split-lines], [data-mask-reveal]';
+    function finish(el) {
+      [el].concat($$('*', el)).forEach(function (node) {
+        gsap.getTweensOf(node).forEach(function (t) {
+          var top = t;
+          while (top.parent && top.parent !== gsap.globalTimeline) top = top.parent;
+          var st = top.scrollTrigger;
+          if (st && st.vars && st.vars.scrub) return;        // parallax / pinned scrub: leave alone
+          if (!top.isActive() && top.progress() < 1) top.progress(1);
+        });
+      });
+      var cs = getComputedStyle(el);
+      if (cs.visibility === 'hidden' || parseFloat(cs.opacity) < 0.05) gsap.set(el, { autoAlpha: 1, y: 0, clearProps: 'transform' });
+    }
+    var els = $$(SEL);
+    if (!('IntersectionObserver' in window)) { setTimeout(function () { els.forEach(finish); }, 3000); return; }
+    var io = new IntersectionObserver(function (entries) {
+      entries.forEach(function (en) {
+        if (!en.isIntersecting) return;
+        io.unobserve(en.target);
+        setTimeout(function () { finish(en.target); }, 1800);
+      });
+    });
+    els.forEach(function (el) { io.observe(el); });
+  })();
 
   // Re-measure once fonts and images have loaded
   window.addEventListener('load', function () { ScrollTrigger.refresh(); });

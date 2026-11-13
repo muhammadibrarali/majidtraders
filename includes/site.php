@@ -371,58 +371,86 @@ function site_footer(): void
     $wa = whatsapp_link();
     $services = site_services();
     $social = social_links();
+    $company = s('company_name', 'Majid Traders');
+    $quick = [
+        ['Home', '/'], ['About', '/about'], ['Services', '/services'], ['Projects', '/projects'],
+        ['Clients', '/clients'], ['Our team', '/team'], ['Certifications', '/certifications'], ['Blog', '/blog'], ['Contact', '/contact'],
+    ];
+    $directions = s('address') !== '' ? 'https://www.google.com/maps/dir/?api=1&destination=' . rawurlencode(s('address')) : '';
     ?>
 </main>
 
 <footer class="site-footer" id="site-footer">
-  <div class="container site-footer__grid">
-    <div class="site-footer__brand">
-      <a class="logo logo--footer" href="/"><?= site_logo_html('footer') ?></a>
+  <div class="container site-footer__grid" data-reveal-group>
+    <div class="site-footer__brand" data-reveal-item>
+      <a class="logo logo--footer" href="/" aria-label="<?= e($company) ?> — home"><?= site_logo_html('footer') ?></a>
       <?php if (s('tagline')): ?><p class="site-footer__tagline"><?= e(s('tagline')) ?></p><?php endif; ?>
-      <?php if (s('company_intro')): ?><p><?= e(s('company_intro')) ?></p><?php endif; ?>
+      <?php if (s('company_intro')): ?><p class="site-footer__intro"><?= e(s('company_intro')) ?></p><?php endif; ?>
       <?php if ($social): ?>
-        <ul class="social" aria-label="Social media">
+        <ul class="social" aria-label="<?= e($company) ?> on social media">
           <?php foreach ($social as [$icon, $label, $url]): ?>
-            <li><a href="<?= e($url) ?>" rel="noopener" target="_blank" aria-label="<?= e($label) ?>"><?= icon_svg($icon, 20) ?></a></li>
+            <li><a href="<?= e($url) ?>" rel="noopener" target="_blank" aria-label="<?= e($label) ?>"><?= icon_svg($icon, 18) ?></a></li>
           <?php endforeach; ?>
         </ul>
       <?php endif; ?>
     </div>
-    <nav class="site-footer__col" aria-label="Quick links">
-      <h2 class="site-footer__title">Quick links</h2>
-      <ul>
-        <?php foreach (site_nav() as [$label, $url]): ?><li><a href="<?= e($url) ?>"><?= e($label) ?></a></li><?php endforeach; ?>
-        <li><a href="/certifications">Certifications</a></li>
-        <li><a href="/team">Our team</a></li>
+
+    <nav class="site-footer__col" aria-labelledby="ft-links" data-reveal-item>
+      <h2 class="site-footer__title" id="ft-links">Quick links</h2>
+      <ul class="site-footer__links site-footer__links--two">
+        <?php foreach ($quick as [$label, $url]): ?><li><a href="<?= e($url) ?>"><?= e($label) ?></a></li><?php endforeach; ?>
       </ul>
     </nav>
+
     <?php if ($services): ?>
-    <nav class="site-footer__col" aria-label="Services">
-      <h2 class="site-footer__title">Services</h2>
-      <ul>
-        <?php foreach ($services as $svc): ?><li><a href="/services/<?= e(rawurlencode($svc['slug'])) ?>"><?= e($svc['title']) ?></a></li><?php endforeach; ?>
-      </ul>
-    </nav>
+      <nav class="site-footer__col" aria-labelledby="ft-services" data-reveal-item>
+        <h2 class="site-footer__title" id="ft-services">Our services</h2>
+        <ul class="site-footer__links">
+          <?php foreach ($services as $svc): ?><li><a href="/services/<?= e(rawurlencode($svc['slug'])) ?>"><?= e($svc['title']) ?></a></li><?php endforeach; ?>
+        </ul>
+      </nav>
+    <?php else: ?>
+      <div class="site-footer__col" data-reveal-item>
+        <h2 class="site-footer__title">Work with us</h2>
+        <p class="site-footer__intro">Import &amp; export, contracting or a supply order? Tell us what you need.</p>
+        <a class="btn btn--primary btn--sm" href="/contact">Get a quote <?= icon_svg('arrow-right', 16) ?></a>
+      </div>
     <?php endif; ?>
-    <div class="site-footer__col">
+
+    <div class="site-footer__col" data-reveal-item>
       <h2 class="site-footer__title">Contact</h2>
       <address>
-        <ul class="contact-list">
-          <?php if (s('address')): ?><li><?= icon_svg('map-pin', 18) ?><span><?= e(s('address')) ?></span></li><?php endif; ?>
-          <?php if (s('phone')): ?><li><?= icon_svg('phone', 18) ?><a href="<?= e(tel_link(s('phone'))) ?>"><?= e(s('phone')) ?></a></li><?php endif; ?>
-          <?php if ($wa): ?><li><?= icon_svg('whatsapp', 18) ?><a href="<?= e($wa) ?>" rel="noopener" target="_blank">WhatsApp us</a></li><?php endif; ?>
-          <?php if (s('email')): ?><li><?= icon_svg('mail', 18) ?><a href="mailto:<?= e(s('email')) ?>"><?= e(s('email')) ?></a></li><?php endif; ?>
-          <?php if (s('office_hours')): ?><li><?= icon_svg('clock', 18) ?><span><?= e(s('office_hours')) ?></span></li><?php endif; ?>
+        <ul class="ft-contact">
+          <?php if (s('address')): ?>
+            <li><span class="ft-contact__icon"><?= icon_svg('map-pin', 18) ?></span><a href="<?= e($directions) ?>" target="_blank" rel="noopener"><?= e(s('address')) ?><span class="visually-hidden"> (directions in Google Maps)</span></a></li>
+          <?php endif; ?>
+          <?php if (s('phone')): ?>
+            <li><span class="ft-contact__icon"><?= icon_svg('phone', 18) ?></span><a href="<?= e(tel_link(s('phone'))) ?>"><?= e(s('phone')) ?></a></li>
+          <?php endif; ?>
+          <?php if (s('email')): ?>
+            <li><span class="ft-contact__icon"><?= icon_svg('mail', 18) ?></span><a href="mailto:<?= e(s('email')) ?>" class="ft-contact__email"><?= e(s('email')) ?></a></li>
+          <?php endif; ?>
+          <?php if ($wa): ?>
+            <li><span class="ft-contact__icon"><?= icon_svg('whatsapp', 18) ?></span><a href="<?= e($wa) ?>" rel="noopener" target="_blank">Chat on WhatsApp</a></li>
+          <?php endif; ?>
+          <?php if (s('office_hours')): ?>
+            <li><span class="ft-contact__icon"><?= icon_svg('clock', 18) ?></span><span><?= e(s('office_hours')) ?></span></li>
+          <?php endif; ?>
         </ul>
       </address>
     </div>
   </div>
-  <div class="container site-footer__bottom">
-    <p>© <?= date('Y') ?> <?= e(s('company_name', 'Majid Traders')) ?>. All rights reserved.</p>
-    <ul>
-      <li><a href="/privacy-policy">Privacy Policy</a></li>
-      <li><a href="<?= e($portal) ?>" rel="noopener">Staff Login</a></li>
-    </ul>
+
+  <p class="site-footer__wordmark" aria-hidden="true"><?= e(mb_strtoupper($company)) ?></p>
+
+  <div class="site-footer__bottom">
+    <div class="container site-footer__bottom-inner">
+      <p>© <?= date('Y') ?> <?= e($company) ?>. All rights reserved.</p>
+      <ul>
+        <li><a href="/privacy-policy">Privacy Policy</a></li>
+        <li><a href="<?= e($portal) ?>" rel="noopener"><?= icon_svg('lock', 14) ?> Staff Login</a></li>
+      </ul>
+    </div>
   </div>
 </footer>
 

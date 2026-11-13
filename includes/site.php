@@ -249,6 +249,11 @@ function site_head(array $meta): void
     if ($noindex && !headers_sent()) {
         header('X-Robots-Tag: noindex, nofollow');
     }
+    if (!headers_sent()) {
+        // Pages change whenever the admin edits content: browsers/CDN must re-check each time.
+        header('Cache-Control: ' . ($hasBar ? 'private, no-store' : 'no-cache'));
+        header('X-LiteSpeed-Cache-Control: no-cache');
+    }
     ?><!doctype html>
 <html lang="en-PK" class="no-js">
 <head>

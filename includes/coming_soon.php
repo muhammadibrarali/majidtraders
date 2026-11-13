@@ -6,6 +6,13 @@
  */
 declare(strict_types=1);
 
+// Never let a browser, LiteSpeed or the Hostinger CDN keep this page:
+// when the website goes live (or the admin logs in) the new site must show at once.
+if (!headers_sent()) {
+    header('Cache-Control: no-store, max-age=0');
+    header('X-LiteSpeed-Cache-Control: no-cache');
+}
+
 $title       = 'Majid Traders – New website coming soon';
 $description = 'Majid Traders, Mardan (KP, Pakistan): import & export, government & private contracting, and general order supply. Our new website is coming soon.';
 $canonical   = 'https://majidtraders.org/';

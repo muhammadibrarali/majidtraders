@@ -34,7 +34,7 @@ $flashes = take_flashes();
 <meta name="robots" content="noindex, nofollow">
 <title>Admin login – Majid Traders</title>
 <link rel="icon" href="/assets/img/favicon.svg" type="image/svg+xml">
-<link rel="stylesheet" href="/assets/css/admin.css">
+<link rel="stylesheet" href="<?= e(asset('/assets/css/admin.css')) ?>">
 </head>
 <body class="auth">
 <main class="auth__card">

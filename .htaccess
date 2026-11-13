@@ -7,7 +7,20 @@ Options -Indexes -MultiViews
 DirectoryIndex index.php index.html
 ServerSignature Off
 AddDefaultCharset UTF-8
-AddType font/woff2 .woff2
+
+# Correct file types for static files. Browsers refuse CSS/JS sent with the
+# wrong type (we send "X-Content-Type-Options: nosniff"), so state them here
+# instead of relying on the server's defaults.
+<IfModule mod_mime.c>
+    AddType text/css .css
+    AddType text/javascript .js .mjs
+    AddType image/svg+xml .svg
+    AddType image/webp .webp
+    AddType font/woff2 .woff2
+    AddType font/woff .woff
+    AddType application/json .json
+    AddCharset UTF-8 .css .js .mjs .svg .json
+</IfModule>
 
 # Friendly error pages (never show server/PHP errors to visitors)
 ErrorDocument 403 /error.php?code=403
@@ -98,7 +111,7 @@ RewriteRule ^ /router.php [L]
 # 5) Speed: compression + browser caching for static files
 # ---------------------------------------------------------------------
 <IfModule mod_deflate.c>
-    AddOutputFilterByType DEFLATE text/html text/css text/plain text/xml application/javascript application/json application/xml image/svg+xml
+    AddOutputFilterByType DEFLATE text/html text/css text/plain text/xml text/javascript application/javascript application/json application/xml image/svg+xml
 </IfModule>
 
 <IfModule mod_expires.c>
@@ -106,6 +119,7 @@ RewriteRule ^ /router.php [L]
     ExpiresDefault "access plus 0 seconds"
     ExpiresByType text/css "access plus 1 month"
     ExpiresByType application/javascript "access plus 1 month"
+    ExpiresByType text/javascript "access plus 1 month"
     ExpiresByType image/svg+xml "access plus 6 months"
     ExpiresByType image/webp "access plus 6 months"
     ExpiresByType image/png "access plus 6 months"

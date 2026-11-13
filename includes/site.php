@@ -24,7 +24,6 @@ const SITE_SCRIPTS = [
     'https://cdn.jsdelivr.net/npm/gsap@3.15.0/dist/SplitText.min.js'     => 'sha384-SWJ0lLVRoipvHh59xj0pL7uC7Ih51F+5smaFtrG+2nr+TlDZU5SYJHmxfolbeNTr',
     'https://cdn.jsdelivr.net/npm/lenis@1.3.26/dist/lenis.min.js'        => 'sha384-jqpi9VmOdhyLoLURgjCn7EpnG9BbnHW57ibIZoeaIU+erWDH3k8fQQg0xH2ySjnw',
 ];
-const SITE_ASSET_VERSION = '5'; // bump to make browsers fetch new CSS/JS
 
 // ---------------------------------------------------------------------------
 // Live / preview / coming soon
@@ -278,11 +277,11 @@ function site_head(array $meta): void
 <link rel="preload" as="image" href="<?= e(media_url($p, 'lg')) ?>" imagesrcset="<?= e(implode(', ', $set)) ?>" imagesizes="100vw" fetchpriority="high">
 <?php endif; ?>
 <link rel="preconnect" href="https://cdn.jsdelivr.net" crossorigin>
-<link rel="stylesheet" href="/assets/css/site.css?v=<?= SITE_ASSET_VERSION ?>">
+<link rel="stylesheet" href="<?= e(asset('/assets/css/site.css')) ?>">
 <?php foreach (SITE_SCRIPTS as $src => $sri): ?>
 <script src="<?= e($src) ?>" integrity="<?= e($sri) ?>" crossorigin="anonymous" defer></script>
 <?php endforeach; ?>
-<script src="/assets/js/site.js?v=<?= SITE_ASSET_VERSION ?>" defer></script>
+<script src="<?= e(asset('/assets/js/site.js')) ?>" defer></script>
 <?php if (!empty($meta['jsonld'])) { echo json_ld($meta['jsonld']); } ?>
 </head>
 <body id="top" class="<?= !empty($meta['hero']) ? 'has-hero' : '' ?><?= $preview ? ' is-preview' : '' ?>">

@@ -450,3 +450,14 @@ fieldset.field { border: 0; padding: 0; min-width: 0; }
 .process-row input:focus, .process-row textarea:focus { outline: none; border-color: var(--orange); box-shadow: 0 0 0 3px rgba(242,107,29,.25); }
 .process-row.is-removed { opacity: .5; }
 @media (min-width: 800px) { .process-row { grid-template-columns: 16rem minmax(0, 1fr) auto; align-items: end; } .process-row .counter-row__tools { grid-column: auto; padding-bottom: .4rem; } }
+
+/* Website health check */
+.health-table { width: 100%; border-collapse: collapse; font-size: .9rem; }
+.health-table th, .health-table td { text-align: left; vertical-align: top; padding: .65rem .6rem; border-top: 1px solid var(--border); }
+.health-table thead th { border-top: 0; color: var(--muted); font-size: .8rem; text-transform: uppercase; letter-spacing: .04em; }
+.health-table tr.is-bad { background: var(--err-bg); }
+.health-table tr.is-bad td strong { color: var(--err); }
+.health-table tr.is-ok td strong { color: var(--ok); }
+.health-table small { color: var(--muted); word-break: break-all; }
+.health-summary { margin-bottom: 1rem; }
+@media (max-width: 700px) { .health-table, .health-table tbody, .health-table tr, .health-table th, .health-table td { display: block; } .health-table thead { display: none; } .health-table tr { border-top: 1px solid var(--border); } .health-table th, .health-table td { border: 0; } }

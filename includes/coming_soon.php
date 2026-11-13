@@ -28,7 +28,7 @@ $canonical   = 'https://majidtraders.org/';
 <meta name="twitter:card" content="summary">
 
 <link rel="icon" href="/assets/img/favicon.svg" type="image/svg+xml">
-<link rel="stylesheet" href="/assets/css/coming-soon.css">
+<link rel="stylesheet" href="<?= e(asset('/assets/css/coming-soon.css')) ?>">
 
 <script type="application/ld+json">
 {

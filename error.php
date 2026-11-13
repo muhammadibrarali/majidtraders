@@ -15,6 +15,7 @@ if (!isset($messages[$code])) {
 [$heading, $text] = $messages[$code];
 if (!headers_sent()) {
     http_response_code($code);
+    header('Cache-Control: no-store'); // never let a cache keep an error page
 }
 ?><!doctype html>
 <html lang="en">
@@ -24,7 +25,7 @@ if (!headers_sent()) {
 <meta name="robots" content="noindex">
 <title><?= e($heading) ?> – Majid Traders</title>
 <link rel="icon" href="/assets/img/favicon.svg" type="image/svg+xml">
-<link rel="stylesheet" href="/assets/css/coming-soon.css">
+<link rel="stylesheet" href="<?= e(asset('/assets/css/coming-soon.css')) ?>">
 </head>
 <body>
 <main class="cs">

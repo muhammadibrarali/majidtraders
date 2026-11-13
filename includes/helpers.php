@@ -10,6 +10,19 @@ if (!defined('ROOT_PATH')) {
     define('PRIVATE_PATH', dirname(ROOT_PATH) . '/private');
 }
 
+/**
+ * URL of a local CSS/JS file with a version number taken from the file's
+ * modification time, e.g. /assets/css/admin.css?v=1763040000.
+ * Every deploy changes the number, so browsers, LiteSpeed and the Hostinger
+ * CDN can never keep serving an old or broken copy.
+ */
+function asset(string $path): string
+{
+    $file = ROOT_PATH . $path;
+    $v = is_file($file) ? (string) filemtime($file) : '0';
+    return $path . '?v=' . $v;
+}
+
 /** Escape text for safe HTML output. */
 function e(mixed $text): string
 {

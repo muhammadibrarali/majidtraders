@@ -100,6 +100,7 @@ admin_page_start('Dashboard', 'dashboard', $admin);
       </dl>
       <p class="muted small">If the previous login wasn’t you, change your password straight away.</p>
       <a class="btn btn--ghost" href="/admin/password"><?= admin_icon('lock') ?><span>Change password</span></a>
+      <a class="btn btn--text" href="/admin/health"><?= admin_icon('check') ?><span>Website health check</span></a>
     </div>
     <div class="card card--dark">
       <h2>Your website</h2>

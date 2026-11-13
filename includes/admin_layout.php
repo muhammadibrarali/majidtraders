@@ -63,8 +63,8 @@ function admin_page_start(string $title, string $active, array $admin, string $a
 <meta name="csrf-token" content="<?= e(csrf_token()) ?>">
 <title><?= e($title) ?> – Majid Traders Admin</title>
 <link rel="icon" href="/assets/img/favicon.svg" type="image/svg+xml">
-<link rel="stylesheet" href="/assets/css/admin.css">
-<script src="/assets/js/admin.js"></script>
+<link rel="stylesheet" href="<?= e(asset('/assets/css/admin.css')) ?>">
+<script src="<?= e(asset('/assets/js/admin.js')) ?>"></script>
 </head>
 <body class="admin">
 <a class="skip-link" href="#main">Skip to content</a>

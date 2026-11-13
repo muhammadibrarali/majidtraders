@@ -87,7 +87,9 @@ These rules apply to EVERY task in this repository. Read them before changing an
 - Animations: `assets/js/site.js` + GSAP 3.15.0 (gsap, ScrollTrigger, SplitText) and Lenis 1.3.26 from jsDelivr, pinned, with SRI hashes in `SITE_SCRIPTS` (includes/site.php). To upgrade: pick a version ≥2 weeks old, recompute sha384 from the npm package files, update URL + hash.
   - Markup hooks: data-reveal, data-reveal-group/data-reveal-item, data-split (words), data-split-lines, data-mask-reveal, data-count, data-parallax, data-hscroll/data-hscroll-track (pinned horizontal, desktop only), data-timeline(-progress), data-slider.
   - Content is visible without JS; hero text uses CSS-only animation; prefers-reduced-motion → no Lenis, no parallax, no pinning, fades only.
-  - Bump `SITE_ASSET_VERSION` in includes/site.php after changing site.css/site.js.
+- Local CSS/JS links ALWAYS use `asset('/assets/...')` (includes/helpers.php): it adds `?v=<file modified time>` so every deploy gets fresh URLs and no browser/LiteSpeed/Hostinger-CDN cache can serve an old or broken copy. Never hard-code `/assets/css/x.css` without asset(). (Fonts referenced from CSS keep fixed names.)
+- `.htaccess` sets explicit MIME types (css, js, svg, webp, woff2…) because we send `X-Content-Type-Options: nosniff`. router.php answers missing static files (css/js/fonts/images) with a plain-text, non-cached 404 — never the HTML error page.
+- `/admin/health` (link on the dashboard): requests every CSS/JS/font/image from the server itself and shows status, MIME type and caching headers with plain-English fixes. Use it first when anything looks unstyled.
 
 ## Pages (built step by step)
 Home, About, Services (+ detail pages), Projects (+ detail pages), Clients, Team, Blog (+ posts), Certifications & Registrations, Contact (form + WhatsApp + map), Privacy Policy, plus a Staff Login link to portal.majidtraders.org.
@@ -129,6 +131,7 @@ Home, About, Services (+ detail pages), Projects (+ detail pages), Clients, Team
     ├── index.php     dashboard          ├── login.php / logout.php (logout = POST + CSRF)
     ├── password.php  change password (logs out other sessions)
     ├── messages.php  contact-form inbox (custom page)
+    ├── health.php    website health check (asset delivery, MIME types, caching)
     ├── project-categories.php / blog-categories.php  category managers (block delete while in use)
     └── <section>.php one file per sidebar section; every page starts with require_admin()
 

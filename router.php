@@ -41,4 +41,15 @@ if (preg_match('#^/media/\d+/#', $path)) {
 // Detail pages (e.g. /projects/school-renovation-mardan) will be added here
 // when those pages are built.
 
+// A missing static file (CSS, JS, font, image…) must NOT receive the HTML
+// "Page not found" page: browsers refuse HTML as CSS/JS ("nosniff"), and a
+// cache could keep it. Answer with a short plain-text 404 that is never cached.
+if (preg_match('#\.(css|js|mjs|map|woff2?|ttf|otf|svg|png|jpe?g|gif|webp|avif|ico|json)$#i', $path)) {
+    http_response_code(404);
+    header('Content-Type: text/plain; charset=utf-8');
+    header('Cache-Control: no-store');
+    echo 'Not found';
+    return;
+}
+
 show_error_page(404);

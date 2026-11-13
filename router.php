@@ -38,8 +38,18 @@ if (preg_match('#^/media/\d+/#', $path)) {
     return;
 }
 
-// Detail pages (e.g. /projects/school-renovation-mardan) will be added here
-// when those pages are built.
+// Old category links (/projects/category/roads) -> filtered list (/projects?category=roads)
+if (preg_match('#^/projects/category/([a-z0-9]+(?:-[a-z0-9]+)*)/?$#', $path, $m)) {
+    header('Location: /projects?category=' . $m[1], true, 301);
+    return;
+}
+
+// Detail pages: /services/<slug>, /projects/<slug>
+if (preg_match('#^/(services|projects)/([a-z0-9]+(?:-[a-z0-9]+)*)/?$#', $path, $m)) {
+    $GLOBALS['route_slug'] = $m[2];
+    require ROOT_PATH . '/' . $m[1] . '.php';
+    return;
+}
 
 // A missing static file (CSS, JS, font, image…) must NOT receive the HTML
 // "Page not found" page: browsers refuse HTML as CSS/JS ("nosniff"), and a

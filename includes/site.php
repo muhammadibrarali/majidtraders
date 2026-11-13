@@ -16,6 +16,7 @@ require_once __DIR__ . '/auth.php';
 require_once __DIR__ . '/settings.php';
 require_once __DIR__ . '/media_lib.php';
 require_once __DIR__ . '/icons.php';
+require_once __DIR__ . '/site_parts.php';
 
 /** Pinned front-end libraries (jsDelivr) with Subresource Integrity hashes. */
 const SITE_SCRIPTS = [
@@ -236,9 +237,18 @@ function site_head(array $meta): void
     if (!$og && !empty($meta['preload'])) {
         $og = $meta['preload']; // no share image chosen: use the page's main image
     }
+    if (!$og && ($id = setting_media_id('hero_image_id'))) {
+        $og = site_media([$id])[$id] ?? null; // last resort: the home page hero photo
+    }
     $fav = setting_media_id('favicon_id');
     $favM = $fav ? (site_media([$fav])[$fav] ?? null) : null;
     $preview = site_is_preview();
+    $draft = $meta['draft'] ?? null;          // ['edit' => admin URL] when an admin views unpublished content
+    $noindex = $preview || $draft || !empty($meta['noindex']);
+    $hasBar = $preview || $draft;
+    if ($noindex && !headers_sent()) {
+        header('X-Robots-Tag: noindex, nofollow');
+    }
     ?><!doctype html>
 <html lang="en-PK" class="no-js">
 <head>
@@ -247,9 +257,11 @@ function site_head(array $meta): void
 <title><?= e($title) ?></title>
 <meta name="description" content="<?= e($desc) ?>">
 <link rel="canonical" href="<?= e($canonical) ?>">
-<?php if ($preview): ?><meta name="robots" content="noindex, nofollow"><?php endif; ?>
+<?php if ($noindex): ?><meta name="robots" content="noindex, nofollow"><?php endif; ?>
+<?php if (!empty($meta['prev'])): ?><link rel="prev" href="<?= e(site_url($meta['prev'])) ?>"><?php endif; ?>
+<?php if (!empty($meta['next'])): ?><link rel="next" href="<?= e(site_url($meta['next'])) ?>"><?php endif; ?>
 <meta name="theme-color" content="#1E2124">
-<meta property="og:type" content="website">
+<meta property="og:type" content="<?= e($meta['og_type'] ?? 'website') ?>">
 <meta property="og:site_name" content="<?= e(s('company_name', 'Majid Traders')) ?>">
 <meta property="og:title" content="<?= e($title) ?>">
 <meta property="og:description" content="<?= e($desc) ?>">
@@ -284,9 +296,15 @@ function site_head(array $meta): void
 <script src="<?= e(asset('/assets/js/site.js')) ?>" defer></script>
 <?php if (!empty($meta['jsonld'])) { echo json_ld($meta['jsonld']); } ?>
 </head>
-<body id="top" class="<?= !empty($meta['hero']) ? 'has-hero' : '' ?><?= $preview ? ' is-preview' : '' ?>">
+<body id="top" class="<?= !empty($meta['hero']) ? 'has-hero' : '' ?><?= $hasBar ? ' is-preview' : '' ?>">
 <a class="skip-link" href="#main">Skip to content</a>
-<?php if ($preview): ?>
+<?php if ($draft): ?>
+<div class="preview-bar preview-bar--draft" role="status">
+  <span><strong>Draft – not public</strong><span class="preview-bar__long"> — only you can see this page because you are logged in.</span></span>
+  <a href="<?= e($draft['edit']) ?>">Edit</a>
+  <a href="/admin/">Admin</a>
+</div>
+<?php elseif ($preview): ?>
 <div class="preview-bar" role="status">
   <span><strong>Preview mode</strong><span class="preview-bar__long"> — only you can see this. Visitors still see the “coming soon” page.</span></span>
   <a href="/admin/settings?tab=status">Go live</a>

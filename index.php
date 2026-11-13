@@ -16,7 +16,6 @@ $pdo = db();
 // ---------------------------------------------------------------- data
 $clients = $pdo->query("SELECT id, name, logo_id, website_url FROM clients
                         WHERE status = 'published' AND show_in_marquee = 1 ORDER BY sort_order, id")->fetchAll();
-$counters = $pdo->query("SELECT label, value, prefix, suffix FROM counters WHERE status = 'published' ORDER BY sort_order, id")->fetchAll();
 $services = site_services();
 $projects = $pdo->query("SELECT p.id, p.title, p.slug, p.location, p.year, p.project_status, p.client_department, p.cover_image_id, p.excerpt,
                                 CASE WHEN c.status = 'published' THEN c.name END AS client_name
@@ -162,20 +161,7 @@ $headline = s('hero_headline', s('tagline', $company));
 </section>
 <?php endif; ?>
 
-<?php if ($counters): // 4. COUNTERS ?>
-<section class="counters" aria-label="Majid Traders in numbers">
-  <div class="container">
-    <ul class="counters__grid counters__grid--<?= min(4, count($counters)) ?>" data-reveal-group>
-      <?php foreach ($counters as $c): ?>
-        <li class="counter" data-reveal-item>
-          <span class="counter__value"><?= e((string) $c['prefix']) ?><span data-count="<?= (int) $c['value'] ?>"><?= number_format((int) $c['value']) ?></span><?= e((string) $c['suffix']) ?></span>
-          <span class="counter__label"><?= e($c['label']) ?></span>
-        </li>
-      <?php endforeach; ?>
-    </ul>
-  </div>
-</section>
-<?php endif; ?>
+<?= render_counters() // 4. COUNTERS ?>
 
 <?php if ($services): // 5. SERVICES (bento grid) ?>
 <section class="section services" aria-labelledby="services-title">
@@ -265,18 +251,7 @@ $headline = s('hero_headline', s('tagline', $company));
       <?= section_head(s('home_certs_eyebrow'), s('home_certs_title', 'Certifications'), 'certs-title') ?>
       <a class="link-arrow" href="/certifications" data-reveal>All registrations <?= icon_svg('arrow-right', 18) ?></a>
     </div>
-    <ul class="certs__list" data-reveal-group>
-      <?php foreach ($certs as $c): $doc = $img($c['document_id']); ?>
-        <li class="cert" data-reveal-item>
-          <span class="cert__badge"><?= $doc && $doc['kind'] === 'image' ? media_img($doc, ['default' => 'sm', 'sizes' => '64px', 'alt' => '']) : icon_svg('award', 30) ?></span>
-          <span class="cert__body">
-            <span class="cert__name"><?= e($c['title']) ?></span>
-            <?php if ($c['grade']): ?><span class="badge badge--accent">Category <?= e($c['grade']) ?></span><?php endif; ?>
-            <span class="cert__meta"><?= e(implode(' · ', array_filter([(string) $c['issuing_authority'], $c['show_number'] && $c['registration_number'] ? 'No. ' . $c['registration_number'] : '']))) ?></span>
-          </span>
-        </li>
-      <?php endforeach; ?>
-    </ul>
+    <?= render_cert_list($certs) ?>
   </div>
 </section>
 <?php endif; ?>
@@ -340,18 +315,6 @@ $headline = s('hero_headline', s('tagline', $company));
 </section>
 <?php endif; ?>
 
-<?php if (s('home_cta_heading')): // 11. CALL TO ACTION ?>
-<section class="cta-band" aria-labelledby="cta-title">
-  <div class="container cta-band__inner">
-    <div class="cta-band__glow" aria-hidden="true"></div>
-    <h2 class="cta-band__title" id="cta-title" data-split><?= e(s('home_cta_heading')) ?></h2>
-    <?php if (s('home_cta_text')): ?><p class="cta-band__text" data-reveal><?= e(s('home_cta_text')) ?></p><?php endif; ?>
-    <div class="cta-band__actions" data-reveal>
-      <a class="btn btn--primary btn--lg" href="/contact">Contact us <?= icon_svg('arrow-right', 20) ?></a>
-      <?php if ($wa): ?><a class="btn btn--ghost-light btn--lg" href="<?= e($wa) ?>" rel="noopener" target="_blank"><?= icon_svg('whatsapp', 20) ?> WhatsApp</a><?php endif; ?>
-    </div>
-  </div>
-</section>
-<?php endif; ?>
+<?php site_cta(); // 11. CALL TO ACTION ?>
 
 <?php site_footer();

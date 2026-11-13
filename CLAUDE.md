@@ -55,10 +55,11 @@ These rules apply to EVERY task in this repository. Read them before changing an
 - Design lives in `includes/schema.php`. Tables: admin_users, login_attempts, media, settings (key/value), counters, services, service_images, clients, project_categories, projects, project_images, project_services, team_members, blog_categories, blog_posts, certifications, testimonials, contact_messages.
 - Content tables have `status` ('draft'/'published'), `sort_order`, `created_at`, `updated_at`; slugs are UNIQUE.
 - Setup is complete on the live site and admin/setup.php was deleted.
-- Upgrades: `includes/migrations.php` runs numbered steps automatically when an admin opens any admin page (`settings.schema_version`, currently 4). To change the database: update schema.php (fresh installs) AND add the next numbered, idempotent step to migrations.php (bump SCHEMA_VERSION).
+- Upgrades: `includes/migrations.php` runs numbered steps automatically when an admin opens any admin page (`settings.schema_version`, currently 5). To change the database: update schema.php (fresh installs) AND add the next numbered, idempotent step to migrations.php (bump SCHEMA_VERSION).
 - v2 added: `media.title`, `service_images` (service gallery), all Site Settings keys, company details, 3 starter services (drafts).
 - v3 added: `projects.project_status` (completed/ongoing), `project_services` (project ↔ service), `clients.show_in_marquee`, `team_members.department` (and DROPPED `team_members.phone` — never store staff phone numbers or home addresses), `blog_posts.tags`, `.reading_minutes`, `.author_team_id` (author = admin OR team member), `certifications.grade`, `.show_number`.
 - v4 added settings: `site_live` ('0' = preview), `home_meta_title`, `home_*` section texts (eyebrow/title per section, about heading/image, `home_process` JSON steps, CTA heading/text).
+- v5 added settings: About page (`about_page_title/lead/image_id`, `about_meta_description`, `about_story_heading/body` (rich text), `about_mission`, `about_vision`, `about_values` JSON, `about_owner_heading/title/message/photo_id`) and page headers `{services,projects,clients}_page_title/lead/image_id` + `{…}_meta_description` (Site Settings › About page / Page headers).
 - Public pages must respect: status = 'published'; blog posts also `published_at <= NOW()` (future = scheduled); team uses status as "Shown on website"; certifications hide `registration_number` when `show_number = 0`; logo marquee = clients with `show_in_marquee = 1`; home showcase = projects with `is_featured = 1`.
 - Settings are key/value (`includes/settings.php`: `setting()`, `save_settings()`); media references in settings store the media ID (keys listed in `media_setting_keys()`).
 
@@ -91,6 +92,13 @@ These rules apply to EVERY task in this repository. Read them before changing an
 - `.htaccess` sets explicit MIME types (css, js, svg, webp, woff2…) because we send `X-Content-Type-Options: nosniff`. router.php answers missing static files (css/js/fonts/images) with a plain-text, non-cached 404 — never the HTML error page.
 - `/admin/health` (link on the dashboard): requests every CSS/JS/font/image from the server itself and shows status, MIME type and caching headers with plain-English fixes. Use it first when anything looks unstyled.
 
+## Inner pages (Step 6)
+- Pages: /about (about.php), /services + /services/{slug} (services.php), /projects + /projects/{slug} (projects.php), /clients (clients.php). router.php sets `$GLOBALS['route_slug']` for /services/{slug} and /projects/{slug}; /projects/category/{slug} 301 → /projects?category={slug}.
+- Shared parts in `includes/site_parts.php`: `site_page_header()` (animated title, breadcrumbs, soft background image), `site_breadcrumbs_html()`, `page_jsonld($crumbs, $extraNodes)` (BreadcrumbList + page schema), `site_load($table, $slug, $isPublic)` (404 unless public; admins see drafts → pass `'draft' => ['edit' => …]` to site_head for the "Draft – not public" bar + noindex), `post_is_live()`, `site_cta()`, `site_empty()`, `render_counters()`, `render_cert_list()`, `service_card_html()`, `project_card_html()` + `PROJECT_CARD_SQL`, `gallery_html()` (lightbox), `site_pagination()`, `site_prose()`, `site_paragraphs()`, `setting_media()`, `client_type_labels()`.
+- Every page: one H1 (page header), unique title + meta description, canonical, og:image (cover → default share image → home hero), breadcrumbs + JSON-LD, closing `site_cta()`, empty state when no content.
+- Projects list: filters are URL params `category` (slug), `status` (completed|ongoing), `year`, `client` (slug), `page`; only values with published projects are offered; non-canonical/empty params 301 to the clean URL (`projects_url()`); 12 per page, out-of-range page = 404, rel prev/next. site.js swaps results via fetch + pushState (works without JS via the form's submit button).
+- Lightbox: `[data-gallery]` > `a[data-lightbox]` (href = large image, data-caption). Local JS in site.js: <dialog>, ←/→, Esc, swipe, focus returns to the thumbnail.
+
 ## Pages (built step by step)
 Home, About, Services (+ detail pages), Projects (+ detail pages), Clients, Team, Blog (+ posts), Certifications & Registrations, Contact (form + WhatsApp + map), Privacy Policy, plus a Staff Login link to portal.majidtraders.org.
 
@@ -100,6 +108,7 @@ Home, About, Services (+ detail pages), Projects (+ detail pages), Clients, Team
 ├── .htaccess         redirects, clean URLs, security headers, blocking rules
 ├── .user.ini         PHP settings (errors hidden from visitors)
 ├── index.php         home page (all sections from the database)
+├── about.php / services.php / projects.php / clients.php   inner pages (Step 6)
 ├── error.php         friendly error page (403/404/500/503)
 ├── router.php        clean-URL router: .htaccess sends every non-file address here
 ├── media.php         serves Media Library files (/media/<id>/...)
@@ -123,6 +132,7 @@ Home, About, Services (+ detail pages), Projects (+ detail pages), Clients, Team
 │   ├── sanitize.php  clean_html() via HTML Purifier
 │   ├── settings.php  setting(), save_settings()
 │   ├── site.php      public website framework (gate/preview, head, header, footer, image helpers)
+│   ├── site_parts.php  shared public page parts (page header, breadcrumbs, cards, gallery, pagination, CTA)
 │   ├── coming_soon.php  coming-soon page for visitors while the site is not live
 │   └── schema.php    full database design (CREATE TABLE IF NOT EXISTS ...)
 ├── lib/              third-party PHP libraries — blocked from web

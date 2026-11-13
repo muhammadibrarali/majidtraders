@@ -1,11 +1,12 @@
 <?php
-/** Site Settings — /admin/settings?tab=status|company|social|hero|home|counters|seo */
+/** Site Settings — /admin/settings?tab=status|company|social|hero|home|about|pages|counters|seo */
 declare(strict_types=1);
 
 require dirname(__DIR__) . '/includes/auth.php';
 require ROOT_PATH . '/includes/admin_layout.php';
 require ROOT_PATH . '/includes/admin_form.php';
 require ROOT_PATH . '/includes/settings.php';
+require ROOT_PATH . '/includes/sanitize.php';
 
 $admin = require_admin();
 
@@ -15,9 +16,14 @@ $tabs = [
     'social'   => 'Social links',
     'hero'     => 'Home page hero',
     'home'     => 'Home page sections',
+    'about'    => 'About page',
+    'pages'    => 'Page headers',
     'counters' => 'Counters',
     'seo'      => 'SEO defaults',
 ];
+// Page headers of the inner pages: prefix => page name
+$pageHeaders = ['services' => 'Services page', 'projects' => 'Projects page', 'clients' => 'Clients page'];
+
 // Editable home page section texts: key => [label, max length, multi-line?]
 $homeTexts = [
     'home_clients_title'        => ['Client logos — heading', 120, false],
@@ -170,6 +176,68 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         }
         if (mb_strlen($save['default_meta_description']) > 300) {
             $errors['default_meta_description'] = 'Too long (maximum 300 characters; 120–160 is best).';
+        }
+    }
+
+    if ($tab === 'about') {
+        $limits = ['about_page_title' => 120, 'about_page_lead' => 300, 'about_meta_description' => 300, 'about_story_heading' => 120,
+                   'about_mission' => 600, 'about_vision' => 600, 'about_owner_heading' => 120, 'about_owner_title' => 120, 'about_owner_message' => 2000];
+        foreach ($limits as $key => $max) {
+            $save[$key] = post_str($key);
+            if (mb_strlen($save[$key]) > $max) {
+                $errors[$key] = 'Too long (maximum ' . $max . ' characters).';
+            }
+        }
+        if ($save['about_page_title'] === '') {
+            $errors['about_page_title'] = 'Please enter the page title.';
+        }
+        $save['about_story_body'] = clean_html((string) ($_POST['about_story_body'] ?? ''));
+        $save['about_page_image_id'] = (string) (post_media_id('about_page_image_id') ?? '');
+        $save['about_owner_photo_id'] = (string) (post_media_id('about_owner_photo_id') ?? '');
+        $aboutValues = [];
+        $valueRows = [];
+        foreach ((array) ($_POST['values'] ?? []) as $key => $v) {
+            if (!is_array($v)) {
+                continue;
+            }
+            $row = ['key' => (string) $key, 'title' => trim((string) ($v['title'] ?? '')), 'text' => trim((string) ($v['text'] ?? '')), 'remove' => !empty($v['remove'])];
+            $valueRows[] = $row;
+            if ($row['remove'] || ($row['title'] === '' && $row['text'] === '')) {
+                continue;
+            }
+            $n = count($aboutValues) + 1;
+            if ($row['title'] === '' || mb_strlen($row['title']) > 80) {
+                $errors['values-' . $key . '-title'] = 'Value ' . $n . ': please add a title (maximum 80 characters).';
+            }
+            if (mb_strlen($row['text']) > 300) {
+                $errors['values-' . $key . '-text'] = 'Value ' . $n . ': the text is too long (maximum 300 characters).';
+            }
+            $aboutValues[] = ['title' => $row['title'], 'text' => $row['text']];
+        }
+        if (count($aboutValues) > 8) {
+            $errors['values'] = 'Please use at most 8 values.';
+        }
+        $save['about_values'] = json_encode($aboutValues, JSON_UNESCAPED_UNICODE);
+        $stepRows = $valueRows; // re-shown if there are errors
+    }
+
+    if ($tab === 'pages') {
+        foreach (array_keys($pageHeaders) as $pg) {
+            foreach (['title' => 120, 'lead' => 300] as $f => $max) {
+                $key = $pg . '_page_' . $f;
+                $save[$key] = post_str($key);
+                if (mb_strlen($save[$key]) > $max) {
+                    $errors[$key] = 'Too long (maximum ' . $max . ' characters).';
+                }
+            }
+            if ($save[$pg . '_page_title'] === '') {
+                $errors[$pg . '_page_title'] = 'Please enter a title.';
+            }
+            $save[$pg . '_meta_description'] = post_str($pg . '_meta_description');
+            if (mb_strlen($save[$pg . '_meta_description']) > 300) {
+                $errors[$pg . '_meta_description'] = 'Too long (maximum 300 characters; 120–160 is best).';
+            }
+            $save[$pg . '_page_image_id'] = (string) (post_media_id($pg . '_page_image_id') ?? '');
         }
     }
 
@@ -394,6 +462,77 @@ admin_page_start('Site Settings', 'settings', $admin);
         <button type="button" class="btn btn--ghost btn--small" data-repeat-add><?= icon_svg('plus', 18) ?><span>Add counter</span></button>
       </div>
     </section>
+
+<?php elseif ($tab === 'about'):
+    $valueRows = $values['__process_rows'] ?? array_map(static fn ($v, $i) => ['key' => 'v' . $i, 'title' => (string) ($v['title'] ?? ''), 'text' => (string) ($v['text'] ?? ''), 'remove' => false],
+        $vl = (array) json_decode($val('about_values') ?: '[]', true), array_keys($vl));
+    $valueRow = static function (array $v) use ($errors): string {
+        $k = e($v['key']);
+        $err = static fn (string $f) => isset($errors['values-' . $v['key'] . '-' . $f]) ? ' aria-invalid="true"' : '';
+        return '<li class="process-row" data-repeat-row>'
+            . '<label class="process-row__title"><span>Value</span><input id="f-values-' . $k . '-title" name="values[' . $k . '][title]" value="' . e($v['title']) . '" maxlength="80" placeholder="Honesty"' . $err('title') . '></label>'
+            . '<label class="process-row__text"><span>Short explanation</span><textarea id="f-values-' . $k . '-text" name="values[' . $k . '][text]" rows="2" maxlength="300"' . $err('text') . '>' . e($v['text']) . '</textarea></label>'
+            . '<span class="counter-row__tools">'
+            . '<button type="button" class="icon-btn" data-row-move="-1" title="Move up">' . icon_svg('up', 18) . '<span class="visually-hidden">Move up</span></button>'
+            . '<button type="button" class="icon-btn" data-row-move="1" title="Move down">' . icon_svg('down', 18) . '<span class="visually-hidden">Move down</span></button>'
+            . '<label class="counter-row__remove"><input type="checkbox" name="values[' . $k . '][remove]" value="1"' . ($v['remove'] ? ' checked' : '') . ' data-row-remove> Remove</label>'
+            . '</span></li>';
+    };
+    ?>
+    <section class="card form">
+      <h2>Page header</h2>
+      <?= field_text('about_page_title', 'Page title', $val('about_page_title'), ['required' => true, 'max' => 120], $errors) ?>
+      <?= field_textarea('about_page_lead', 'Short intro under the title', $val('about_page_lead'), ['max' => 300, 'rows' => 2, 'counter' => true], $errors) ?>
+      <?= field_media('about_page_image_id', 'Header background image', $med('about_page_image_id'), ['help' => 'A wide photo shown softly behind the page title.'], $errors) ?>
+      <?= field_textarea('about_meta_description', 'Google description', $val('about_meta_description'), ['max' => 300, 'rows' => 2, 'counter' => true, 'recommend' => [120, 160]], $errors) ?>
+    </section>
+    <section class="card form">
+      <h2>Our story</h2>
+      <?= field_text('about_story_heading', 'Heading', $val('about_story_heading'), ['max' => 120], $errors) ?>
+      <?= field_richtext('about_story_body', 'Story text', $val('about_story_body'), ['help' => 'The longer company story. Use headings, bullet points and images from the Media Library.'], $errors) ?>
+    </section>
+    <section class="card form">
+      <h2>Mission &amp; vision</h2>
+      <div class="form-grid">
+        <?= field_textarea('about_mission', 'Mission', $val('about_mission'), ['max' => 600, 'rows' => 4, 'counter' => true], $errors) ?>
+        <?= field_textarea('about_vision', 'Vision', $val('about_vision'), ['max' => 600, 'rows' => 4, 'counter' => true], $errors) ?>
+      </div>
+    </section>
+    <section class="card form">
+      <h2>Core values</h2>
+      <p class="help">3–6 short values work best.</p>
+      <?php if (isset($errors['values'])): ?><p class="field-error"><?= e($errors['values']) ?></p><?php endif; ?>
+      <div data-repeat>
+        <ol class="process-list" data-repeat-list>
+          <?php foreach ($valueRows as $v) { echo $valueRow($v); } ?>
+        </ol>
+        <template data-repeat-template><?= $valueRow(['key' => '__KEY__', 'title' => '', 'text' => '', 'remove' => false]) ?></template>
+        <button type="button" class="btn btn--ghost btn--small" data-repeat-add><?= icon_svg('plus', 18) ?><span>Add value</span></button>
+      </div>
+    </section>
+    <section class="card form">
+      <h2>Owner’s message</h2>
+      <p class="help">Shown with the owner name from the Company tab (<?= e($val('owner_name') ?: setting('owner_name')) ?>).</p>
+      <div class="form-grid">
+        <?= field_text('about_owner_heading', 'Heading', $val('about_owner_heading'), ['max' => 120], $errors) ?>
+        <?= field_text('about_owner_title', 'Owner’s title', $val('about_owner_title'), ['max' => 120, 'placeholder' => 'Founder & Proprietor'], $errors) ?>
+      </div>
+      <?= field_textarea('about_owner_message', 'Message', $val('about_owner_message'), ['max' => 2000, 'rows' => 6, 'counter' => true, 'help' => 'Leave an empty line between paragraphs.'], $errors) ?>
+      <?= field_media('about_owner_photo_id', 'Owner photo', $med('about_owner_photo_id'), ['help' => 'A professional portrait photo.'], $errors) ?>
+    </section>
+
+<?php elseif ($tab === 'pages'): ?>
+    <?php foreach ($pageHeaders as $pg => $name): ?>
+    <section class="card form">
+      <h2><?= e($name) ?></h2>
+      <div class="form-grid">
+        <?= field_text($pg . '_page_title', 'Page title', $val($pg . '_page_title'), ['required' => true, 'max' => 120], $errors) ?>
+        <?= field_media($pg . '_page_image_id', 'Header background image', $med($pg . '_page_image_id'), [], $errors) ?>
+      </div>
+      <?= field_textarea($pg . '_page_lead', 'Short intro under the title', $val($pg . '_page_lead'), ['max' => 300, 'rows' => 2, 'counter' => true], $errors) ?>
+      <?= field_textarea($pg . '_meta_description', 'Google description', $val($pg . '_meta_description'), ['max' => 300, 'rows' => 2, 'counter' => true, 'recommend' => [120, 160]], $errors) ?>
+    </section>
+    <?php endforeach; ?>
 
 <?php elseif ($tab === 'status'): $isLive = $val('site_live') === '1'; ?>
     <section class="card form">

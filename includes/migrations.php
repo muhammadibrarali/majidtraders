@@ -11,7 +11,7 @@
  */
 declare(strict_types=1);
 
-const SCHEMA_VERSION = 4;
+const SCHEMA_VERSION = 5;
 
 function column_exists(PDO $pdo, string $table, string $column): bool
 {
@@ -205,6 +205,52 @@ function migration_steps(): array
             ['home_blog_title', 'Latest from the blog', 'home', 'Blog: heading'],
             ['home_cta_heading', "Have a tender or project in mind? Let's talk.", 'home', 'Call to action: heading'],
             ['home_cta_text', 'Share your requirements and our team will get back to you with a clear, honest quotation.', 'home', 'Call to action: text'],
+        ];
+        $insert = $pdo->prepare('INSERT IGNORE INTO settings (setting_key, setting_value, setting_group, label) VALUES (?, ?, ?, ?)');
+        foreach ($keys as $row) {
+            $insert->execute($row);
+        }
+    },
+
+    // ------------------------------------------------------------------ v5
+    // Texts and header images for the inner pages (About, Services,
+    // Projects, Clients). Starter text only — the owner edits it in
+    // Site Settings › About page / Page headers.
+    5 => static function (PDO $pdo): void {
+        $values = json_encode([
+            ['title' => 'Honesty', 'text' => 'Clear quotations, honest billing and no hidden costs — ever.'],
+            ['title' => 'Quality', 'text' => 'Materials and workmanship that meet the specification, checked at every stage.'],
+            ['title' => 'On-time delivery', 'text' => 'We plan carefully so supplies and projects are delivered when promised.'],
+            ['title' => 'Long-term relationships', 'text' => 'Most of our work comes from clients who return to us again and again.'],
+        ], JSON_UNESCAPED_UNICODE);
+        $keys = [
+            // About page
+            ['about_page_title', 'About Majid Traders', 'about', 'Page title'],
+            ['about_page_lead', "A Mardan-based company in import & export, government & private contracting and general order supply.", 'about', 'Short intro under the title'],
+            ['about_page_image_id', '', 'about', 'Header image'],
+            ['about_meta_description', 'Learn about Majid Traders, Mardan: our story, mission, values and the people behind our contracting, supply and import & export work in Khyber Pakhtunkhwa.', 'about', 'Google description'],
+            ['about_story_heading', 'Our story', 'about', 'Story heading'],
+            ['about_story_body', '<p><strong>Placeholder text — please replace.</strong> Tell the story of Majid Traders: when and how the company started, the first projects, how the business grew, and what makes your team different.</p>', 'about', 'Story text'],
+            ['about_mission', 'To deliver reliable contracting, supply and trading services that our clients can trust — on time, to specification and at a fair price.', 'about', 'Mission'],
+            ['about_vision', 'To be the most trusted contracting and supply partner in Khyber Pakhtunkhwa for government departments and private businesses.', 'about', 'Vision'],
+            ['about_values', $values, 'about', 'Core values'],
+            ['about_owner_heading', 'A message from our founder', 'about', 'Owner message heading'],
+            ['about_owner_title', 'Founder & Proprietor', 'about', "Owner's title"],
+            ['about_owner_message', "Placeholder text — please replace with a short personal message from the owner to clients and partners.\n\nThank you for your trust in Majid Traders.", 'about', 'Owner message'],
+            ['about_owner_photo_id', '', 'about', 'Owner photo'],
+            // Services / Projects / Clients page headers
+            ['services_page_title', 'Our services', 'pages', 'Services page title'],
+            ['services_page_lead', 'Import & export, government & private contracting and general order supply — handled end to end by one reliable team.', 'pages', 'Services page intro'],
+            ['services_page_image_id', '', 'pages', 'Services header image'],
+            ['services_meta_description', 'Services of Majid Traders, Mardan: import & export, government and private contracting, and general order supply across Khyber Pakhtunkhwa.', 'pages', 'Services Google description'],
+            ['projects_page_title', 'Our projects', 'pages', 'Projects page title'],
+            ['projects_page_lead', 'A selection of completed and ongoing work for government departments and private clients.', 'pages', 'Projects page intro'],
+            ['projects_page_image_id', '', 'pages', 'Projects header image'],
+            ['projects_meta_description', 'Completed and ongoing projects by Majid Traders: construction, renovation, supply and procurement for government and private clients in Khyber Pakhtunkhwa.', 'pages', 'Projects Google description'],
+            ['clients_page_title', 'Our clients', 'pages', 'Clients page title'],
+            ['clients_page_lead', 'Government departments and private organisations that trust Majid Traders with their projects and supplies.', 'pages', 'Clients page intro'],
+            ['clients_page_image_id', '', 'pages', 'Clients header image'],
+            ['clients_meta_description', 'Clients of Majid Traders, Mardan: federal and provincial government departments, semi-government bodies and private organisations.', 'pages', 'Clients Google description'],
         ];
         $insert = $pdo->prepare('INSERT IGNORE INTO settings (setting_key, setting_value, setting_group, label) VALUES (?, ?, ?, ?)');
         foreach ($keys as $row) {

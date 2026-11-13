@@ -54,5 +54,10 @@ function media_setting_keys(): array
         'hero_image_id'         => 'Site Settings › Home page hero image',
         'default_og_image_id'   => 'Site Settings › Default share image',
         'home_about_image_id'   => 'Site Settings › Home page › About image',
+        'about_page_image_id'   => 'Site Settings › About page › Header image',
+        'about_owner_photo_id'  => 'Site Settings › About page › Owner photo',
+        'services_page_image_id' => 'Site Settings › Page headers › Services image',
+        'projects_page_image_id' => 'Site Settings › Page headers › Projects image',
+        'clients_page_image_id' => 'Site Settings › Page headers › Clients image',
     ];
 }

@@ -11,7 +11,7 @@
  */
 declare(strict_types=1);
 
-const SCHEMA_VERSION = 3;
+const SCHEMA_VERSION = 4;
 
 function column_exists(PDO $pdo, string $table, string $column): bool
 {
@@ -169,6 +169,46 @@ function migration_steps(): array
         $add('certifications', 'show_number', 'TINYINT(1) NOT NULL DEFAULT 1 AFTER grade');
         if (!index_exists($pdo, 'certifications', 'idx_cert_expiry')) {
             $pdo->exec('ALTER TABLE certifications ADD KEY idx_cert_expiry (expiry_date)');
+        }
+    },
+
+    // ------------------------------------------------------------------ v4
+    // "Website is live" switch (OFF = coming-soon page for visitors, preview
+    // for logged-in admins) and editable texts for every home page section.
+    4 => static function (PDO $pdo): void {
+        $process = json_encode([
+            ['title' => 'Enquiry & tender study', 'text' => 'We study your tender documents, BOQ or requirement list and ask the right questions early.'],
+            ['title' => 'Site survey & costing', 'text' => 'Our team visits the site or checks the specifications and prepares an honest, detailed cost.'],
+            ['title' => 'Proposal & agreement', 'text' => 'You receive a clear quotation with timelines. Once approved, we plan materials, people and logistics.'],
+            ['title' => 'Execution & supply', 'text' => 'Work and deliveries start on schedule, with regular progress updates and quality checks.'],
+            ['title' => 'Handover & support', 'text' => 'We hand over complete work with documentation and stay available for after-sales support.'],
+        ], JSON_UNESCAPED_UNICODE);
+        $keys = [
+            ['site_live', '0', 'status', 'Website is live'],
+            ['home_meta_title', 'Majid Traders – Contracting, Supply and Import & Export in Mardan, KP', 'seo', 'Home page title'],
+            ['home_clients_title', 'Trusted by government departments and private clients', 'home', 'Client logos heading'],
+            ['home_about_eyebrow', 'About us', 'home', 'About: small label'],
+            ['home_about_heading', 'Building, supplying and trading across Khyber Pakhtunkhwa', 'home', 'About: heading'],
+            ['home_about_image_id', '', 'home', 'About: image'],
+            ['home_services_eyebrow', 'What we do', 'home', 'Services: small label'],
+            ['home_services_title', 'Services for government and private clients', 'home', 'Services: heading'],
+            ['home_projects_eyebrow', 'Featured work', 'home', 'Projects: small label'],
+            ['home_projects_title', 'Projects we are proud of', 'home', 'Projects: heading'],
+            ['home_process_eyebrow', 'How we work', 'home', 'Process: small label'],
+            ['home_process_title', 'From tender to handover', 'home', 'Process: heading'],
+            ['home_process', $process, 'home', 'Process steps'],
+            ['home_certs_eyebrow', 'Registered & certified', 'home', 'Certifications: small label'],
+            ['home_certs_title', 'Certifications & registrations', 'home', 'Certifications: heading'],
+            ['home_testimonials_eyebrow', 'Client feedback', 'home', 'Testimonials: small label'],
+            ['home_testimonials_title', 'What our clients say', 'home', 'Testimonials: heading'],
+            ['home_blog_eyebrow', 'News & insights', 'home', 'Blog: small label'],
+            ['home_blog_title', 'Latest from the blog', 'home', 'Blog: heading'],
+            ['home_cta_heading', "Have a tender or project in mind? Let's talk.", 'home', 'Call to action: heading'],
+            ['home_cta_text', 'Share your requirements and our team will get back to you with a clear, honest quotation.', 'home', 'Call to action: text'],
+        ];
+        $insert = $pdo->prepare('INSERT IGNORE INTO settings (setting_key, setting_value, setting_group, label) VALUES (?, ?, ?, ?)');
+        foreach ($keys as $row) {
+            $insert->execute($row);
         }
     },
 

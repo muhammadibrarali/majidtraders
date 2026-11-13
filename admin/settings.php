@@ -1,5 +1,5 @@
 <?php
-/** Site Settings — /admin/settings?tab=company|social|hero|counters|seo */
+/** Site Settings — /admin/settings?tab=status|company|social|hero|home|counters|seo */
 declare(strict_types=1);
 
 require dirname(__DIR__) . '/includes/auth.php';
@@ -10,11 +10,33 @@ require ROOT_PATH . '/includes/settings.php';
 $admin = require_admin();
 
 $tabs = [
+    'status'   => 'Website status',
     'company'  => 'Company',
     'social'   => 'Social links',
     'hero'     => 'Home page hero',
+    'home'     => 'Home page sections',
     'counters' => 'Counters',
     'seo'      => 'SEO defaults',
+];
+// Editable home page section texts: key => [label, max length, multi-line?]
+$homeTexts = [
+    'home_clients_title'        => ['Client logos — heading', 120, false],
+    'home_about_eyebrow'        => ['About — small orange label', 40, false],
+    'home_about_heading'        => ['About — heading', 140, false],
+    'home_services_eyebrow'     => ['Services — small orange label', 40, false],
+    'home_services_title'       => ['Services — heading', 140, false],
+    'home_projects_eyebrow'     => ['Projects — small orange label', 40, false],
+    'home_projects_title'       => ['Projects — heading', 140, false],
+    'home_process_eyebrow'      => ['How we work — small orange label', 40, false],
+    'home_process_title'        => ['How we work — heading', 140, false],
+    'home_certs_eyebrow'        => ['Certifications — small orange label', 40, false],
+    'home_certs_title'          => ['Certifications — heading', 140, false],
+    'home_testimonials_eyebrow' => ['Testimonials — small orange label', 40, false],
+    'home_testimonials_title'   => ['Testimonials — heading', 140, false],
+    'home_blog_eyebrow'         => ['Blog — small orange label', 40, false],
+    'home_blog_title'           => ['Blog — heading', 140, false],
+    'home_cta_heading'          => ['Call to action — heading', 140, false],
+    'home_cta_text'             => ['Call to action — text', 300, true],
 ];
 $tab = isset($tabs[$_GET['tab'] ?? '']) ? $_GET['tab'] : 'company';
 
@@ -139,12 +161,57 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
     if ($tab === 'seo') {
         $save = [
+            'home_meta_title'          => post_str('home_meta_title'),
             'default_meta_description' => post_str('default_meta_description'),
             'default_og_image_id'      => (string) (post_media_id('default_og_image_id') ?? ''),
         ];
+        if (mb_strlen($save['home_meta_title']) > 160) {
+            $errors['home_meta_title'] = 'Too long (maximum 160 characters; about 60 is best).';
+        }
         if (mb_strlen($save['default_meta_description']) > 300) {
             $errors['default_meta_description'] = 'Too long (maximum 300 characters; 120–160 is best).';
         }
+    }
+
+    if ($tab === 'status') {
+        $save = ['site_live' => isset($_POST['site_live']) ? '1' : '0'];
+    }
+
+    if ($tab === 'home') {
+        foreach ($homeTexts as $key => [$label, $max]) {
+            $save[$key] = post_str($key);
+            if (mb_strlen($save[$key]) > $max) {
+                $errors[$key] = '“' . $label . '” is too long (maximum ' . $max . ' characters).';
+            }
+        }
+        $save['home_about_image_id'] = (string) (post_media_id('home_about_image_id') ?? '');
+        // How we work: ordered steps (title + text), stored as JSON.
+        $steps = [];
+        $stepRows = [];
+        foreach ((array) ($_POST['process'] ?? []) as $key => $st) {
+            if (!is_array($st)) {
+                continue;
+            }
+            $row = ['key' => (string) $key, 'title' => trim((string) ($st['title'] ?? '')), 'text' => trim((string) ($st['text'] ?? '')), 'remove' => !empty($st['remove'])];
+            $stepRows[] = $row;
+            if ($row['remove'] || ($row['title'] === '' && $row['text'] === '')) {
+                continue;
+            }
+            $n = count($steps) + 1;
+            if ($row['title'] === '') {
+                $errors['process-' . $key . '-title'] = 'Step ' . $n . ': please add a short title.';
+            } elseif (mb_strlen($row['title']) > 80) {
+                $errors['process-' . $key . '-title'] = 'Step ' . $n . ': the title is too long (maximum 80 characters).';
+            }
+            if (mb_strlen($row['text']) > 300) {
+                $errors['process-' . $key . '-text'] = 'Step ' . $n . ': the text is too long (maximum 300 characters).';
+            }
+            $steps[] = ['title' => $row['title'], 'text' => $row['text']];
+        }
+        if (count($steps) > 8) {
+            $errors['process'] = 'Please use at most 8 steps.';
+        }
+        $save['home_process'] = json_encode($steps, JSON_UNESCAPED_UNICODE);
     }
 
     if ($tab === 'counters') {
@@ -213,7 +280,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         flash('success', $tabs[$tab] . ' settings saved.');
         redirect('/admin/settings?tab=' . $tab);
     } else {
-        $values = $save;
+        $values = $save + (isset($stepRows) ? ['__process_rows' => $stepRows] : []);
     }
 }
 
@@ -301,7 +368,7 @@ admin_page_start('Site Settings', 'settings', $admin);
     $counterRow = static function (array $c) use ($errors): string {
         $k = e($c['key']);
         $err = static fn (string $f) => isset($errors['counters-' . $c['key'] . '-' . $f]) ? ' aria-invalid="true"' : '';
-        return '<li class="counter-row" data-counter-row>'
+        return '<li class="counter-row" data-repeat-row>'
             . '<input type="hidden" name="counters[' . $k . '][id]" value="' . (int) $c['id'] . '">'
             . '<label class="counter-row__value"><span>Number</span><input id="f-counters-' . $k . '-value" name="counters[' . $k . '][value]" value="' . e($c['value']) . '" inputmode="numeric" placeholder="250"' . $err('value') . '></label>'
             . '<label class="counter-row__suffix"><span>Suffix</span><input id="f-counters-' . $k . '-suffix" name="counters[' . $k . '][suffix]" value="' . e($c['suffix']) . '" maxlength="10" placeholder="+"' . $err('suffix') . '></label>'
@@ -318,18 +385,94 @@ admin_page_start('Site Settings', 'settings', $admin);
     <section class="card form">
       <h2>Animated counters</h2>
       <p class="help">The big numbers that count up on the home page (e.g. “250+ Projects completed”). Untick “Show” to hide one without deleting it.</p>
-      <ul class="counter-list" data-counter-list>
-        <?php foreach ($rows as $c) { echo $counterRow($c); } ?>
-        <?= $counterRow(['key' => 'new1'] + $blank) ?>
-      </ul>
-      <template data-counter-template><?= $counterRow(['key' => '__KEY__'] + $blank) ?></template>
-      <button type="button" class="btn btn--ghost btn--small" data-counter-add><?= icon_svg('plus', 18) ?><span>Add counter</span></button>
+      <div data-repeat>
+        <ul class="counter-list" data-repeat-list>
+          <?php foreach ($rows as $c) { echo $counterRow($c); } ?>
+          <?= $counterRow(['key' => 'new1'] + $blank) ?>
+        </ul>
+        <template data-repeat-template><?= $counterRow(['key' => '__KEY__'] + $blank) ?></template>
+        <button type="button" class="btn btn--ghost btn--small" data-repeat-add><?= icon_svg('plus', 18) ?><span>Add counter</span></button>
+      </div>
+    </section>
+
+<?php elseif ($tab === 'status'): $isLive = $val('site_live') === '1'; ?>
+    <section class="card form">
+      <h2>Is the new website live?</h2>
+      <div class="notice <?= $isLive ? 'notice--ok' : 'notice--info' ?>" role="status">
+        <?php if ($isLive): ?>
+          <p><strong>The new website is LIVE.</strong> Everyone sees it.</p>
+        <?php else: ?>
+          <p><strong>Preview mode.</strong> Visitors still see the “coming soon” page. Only you (while logged in to the admin) see the new website, with a small “Preview mode” bar at the top.</p>
+        <?php endif; ?>
+      </div>
+      <?= field_switch('site_live', 'Website is live (everyone can see the new website)', $isLive, ['help' => 'Turn this on when you are happy with the content. You can turn it off again at any time.']) ?>
+      <p><a class="btn btn--ghost" href="/" target="_blank" rel="noopener"><?= icon_svg('eye', 18) ?><span><?= $isLive ? 'View the website' : 'Preview the new website' ?></span></a></p>
+    </section>
+
+<?php elseif ($tab === 'home'):
+    $stepRows = $values['__process_rows'] ?? array_map(static fn ($st, $i) => ['key' => 's' . $i, 'title' => (string) ($st['title'] ?? ''), 'text' => (string) ($st['text'] ?? ''), 'remove' => false],
+        $list = (array) json_decode($val('home_process') ?: '[]', true), array_keys($list));
+    $stepRow = static function (array $st) use ($errors): string {
+        $k = e($st['key']);
+        $err = static fn (string $f) => isset($errors['process-' . $st['key'] . '-' . $f]) ? ' aria-invalid="true"' : '';
+        return '<li class="process-row" data-repeat-row>'
+            . '<label class="process-row__title"><span>Step title</span><input id="f-process-' . $k . '-title" name="process[' . $k . '][title]" value="' . e($st['title']) . '" maxlength="80" placeholder="Site survey & costing"' . $err('title') . '></label>'
+            . '<label class="process-row__text"><span>Short description</span><textarea id="f-process-' . $k . '-text" name="process[' . $k . '][text]" rows="2" maxlength="300"' . $err('text') . '>' . e($st['text']) . '</textarea></label>'
+            . '<span class="counter-row__tools">'
+            . '<button type="button" class="icon-btn" data-row-move="-1" title="Move up">' . icon_svg('up', 18) . '<span class="visually-hidden">Move up</span></button>'
+            . '<button type="button" class="icon-btn" data-row-move="1" title="Move down">' . icon_svg('down', 18) . '<span class="visually-hidden">Move down</span></button>'
+            . '<label class="counter-row__remove"><input type="checkbox" name="process[' . $k . '][remove]" value="1"' . ($st['remove'] ? ' checked' : '') . ' data-row-remove> Remove</label>'
+            . '</span></li>';
+    };
+    $blankStep = ['title' => '', 'text' => '', 'remove' => false];
+    $field = static fn (string $key) => $homeTexts[$key][2]
+        ? field_textarea($key, $homeTexts[$key][0], $val($key), ['max' => $homeTexts[$key][1], 'rows' => 2, 'counter' => true], $errors)
+        : field_text($key, $homeTexts[$key][0], $val($key), ['max' => $homeTexts[$key][1]], $errors);
+    ?>
+    <section class="card form">
+      <h2>Home page sections</h2>
+      <p class="help">Headings and short texts of each section on the home page. The orange “small label” appears above each heading. Sections without content (e.g. no blog posts yet) are hidden automatically.</p>
+      <?= $field('home_clients_title') ?>
+    </section>
+    <section class="card form">
+      <h2>About section</h2>
+      <p class="help">The text comes from “Short introduction” in the Company tab.</p>
+      <div class="form-grid"><?= $field('home_about_eyebrow') ?><?= $field('home_about_heading') ?></div>
+      <?= field_media('home_about_image_id', 'About image', $med('home_about_image_id'), ['help' => 'A photo of your team, office, warehouse or a project site. Portrait or square photos work best.'], $errors) ?>
+    </section>
+    <section class="card form">
+      <h2>Section headings</h2>
+      <div class="form-grid">
+        <?php foreach (['services', 'projects', 'certs', 'testimonials', 'blog'] as $sec): ?>
+          <?= $field('home_' . $sec . '_eyebrow') ?><?= $field('home_' . $sec . '_title') ?>
+        <?php endforeach; ?>
+      </div>
+    </section>
+    <section class="card form">
+      <h2>How we work</h2>
+      <div class="form-grid"><?= $field('home_process_eyebrow') ?><?= $field('home_process_title') ?></div>
+      <p class="help">The steps of your work process, shown as a timeline. 4–5 steps work best.</p>
+      <?php if (isset($errors['process'])): ?><p class="field-error"><?= e($errors['process']) ?></p><?php endif; ?>
+      <div data-repeat>
+        <ol class="process-list" data-repeat-list>
+          <?php foreach ($stepRows as $st) { echo $stepRow($st); } ?>
+        </ol>
+        <template data-repeat-template><?= $stepRow(['key' => '__KEY__'] + $blankStep) ?></template>
+        <button type="button" class="btn btn--ghost btn--small" data-repeat-add><?= icon_svg('plus', 18) ?><span>Add step</span></button>
+        <noscript><p class="help">To add a step, enable JavaScript.</p></noscript>
+      </div>
+    </section>
+    <section class="card form">
+      <h2>Call to action</h2>
+      <p class="help">The dark band near the bottom of the home page with Contact and WhatsApp buttons.</p>
+      <?= $field('home_cta_heading') ?><?= $field('home_cta_text') ?>
     </section>
 
 <?php else: ?>
     <section class="card form">
       <h2>Search engine &amp; sharing defaults</h2>
       <p class="help">Used on pages that don’t have their own SEO text or image.</p>
+      <?= field_text('home_meta_title', 'Home page title (Google headline)', $val('home_meta_title'), ['max' => 160, 'counter' => true, 'recommend' => [30, 65], 'help' => 'The blue headline Google shows for your home page.'], $errors) ?>
       <?= field_textarea('default_meta_description', 'Default meta description', $val('default_meta_description'), ['max' => 300, 'rows' => 3, 'counter' => true, 'recommend' => [120, 160], 'help' => 'The short text Google shows under your website’s name. 120–160 characters is best.'], $errors) ?>
       <?= field_media('default_og_image_id', 'Default share image', $med('default_og_image_id'), ['help' => 'Shown when someone shares a link on WhatsApp, Facebook or LinkedIn. Best size: 1200 × 630 px.'], $errors) ?>
     </section>

@@ -50,6 +50,21 @@ function icon_paths(): array
         'phone'     => '<path d="M5 3h4l2 5-3 2a12 12 0 0 0 6 6l2-3 5 2v4a2 2 0 0 1-2 2A17 17 0 0 1 3 5a2 2 0 0 1 2-2z"/>',
         'leaf'      => '<path d="M5 19C5 9 11 4 20 4c0 9-5 15-15 15zM5 19l8-8"/>',
         'bolt'      => '<path d="M13 2 4 14h7l-1 8 9-12h-7z"/>',
+        // --- public website ---
+        'arrow-right' => '<path d="M5 12h14M13 6l6 6-6 6"/>',
+        'arrow-up'    => '<path d="M12 19V5M6 11l6-6 6 6"/>',
+        'chevron-left'  => '<path d="m15 6-6 6 6 6"/>',
+        'chevron-right' => '<path d="m9 6 6 6-6 6"/>',
+        'map-pin'   => '<path d="M12 21s-7-6.2-7-11.5a7 7 0 0 1 14 0C19 14.8 12 21 12 21z"/><circle cx="12" cy="9.5" r="2.5"/>',
+        'clock'     => '<circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/>',
+        'calendar'  => '<rect x="3" y="5" width="18" height="16" rx="2"/><path d="M3 10h18M8 3v4M16 3v4"/>',
+        'whatsapp'  => '<path d="M3.5 20.5 4.9 16A8.6 8.6 0 1 1 8 19.3z"/><path d="M9 8.6c-.4 2.7 2.7 6.1 5.6 6.1l1.1-1.2-1.9-1.1-.9.7a3.8 3.8 0 0 1-2-2l.7-.9-1-2z"/>',
+        'facebook'  => '<path d="M14 21v-8h3l.5-3.5H14V7.6c0-1 .4-1.6 1.7-1.6H18V3a20 20 0 0 0-2.7-.2C12.7 2.8 11 4.4 11 7.2v2.3H8V13h3v8"/>',
+        'instagram' => '<rect x="3" y="3" width="18" height="18" rx="5"/><circle cx="12" cy="12" r="4"/><path d="M17.5 6.5h.01"/>',
+        'linkedin'  => '<rect x="3" y="3" width="18" height="18" rx="3"/><path d="M8 10.5V17M8 7.3v.01M12 17v-6.5M12 13.5c0-2 1.2-3 2.6-3S17 11.5 17 13.5V17"/>',
+        'youtube'   => '<rect x="2.5" y="5" width="19" height="14" rx="4"/><path d="m10 9 5 3-5 3z"/>',
+        'tiktok'    => '<path d="M14 3v11.5a3.5 3.5 0 1 1-3.5-3.5"/><path d="M14 3c.4 2.8 2.2 4.6 5 5"/>',
+        'x-social'  => '<path d="M4 4h4.6L20 20h-4.6zM19.5 4l-6.4 6.9M10.9 13.1 4.5 20"/>',
     ];
 }
 

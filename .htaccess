@@ -7,6 +7,7 @@ Options -Indexes -MultiViews
 DirectoryIndex index.php index.html
 ServerSignature Off
 AddDefaultCharset UTF-8
+AddType font/woff2 .woff2
 
 # Friendly error pages (never show server/PHP errors to visitors)
 ErrorDocument 403 /error.php?code=403

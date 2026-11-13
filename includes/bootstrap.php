@@ -64,7 +64,10 @@ date_default_timezone_set((string) config('site.timezone', 'Asia/Karachi'));
 // 2) Secure session
 // ---------------------------------------------------------------------------
 // Pages that must not create a session (e.g. media.php, for caching) define MT_NO_SESSION first.
-if (session_status() === PHP_SESSION_NONE && !defined('MT_NO_SESSION')) {
+// Public website pages define MT_PUBLIC_PAGE: they only open a session when the
+// visitor already has one (i.e. a logged-in admin), so normal visitors get no cookie.
+if (session_status() === PHP_SESSION_NONE && !defined('MT_NO_SESSION')
+    && !(defined('MT_PUBLIC_PAGE') && empty($_COOKIE['mt_session']))) {
     ini_set('session.use_strict_mode', '1');
     ini_set('session.use_only_cookies', '1');
     ini_set('session.use_trans_sid', '0');

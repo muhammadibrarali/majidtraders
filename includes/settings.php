@@ -53,5 +53,6 @@ function media_setting_keys(): array
         'company_profile_pdf_id' => 'Site Settings › Company profile PDF',
         'hero_image_id'         => 'Site Settings › Home page hero image',
         'default_og_image_id'   => 'Site Settings › Default share image',
+        'home_about_image_id'   => 'Site Settings › Home page › About image',
     ];
 }

@@ -55,9 +55,10 @@ These rules apply to EVERY task in this repository. Read them before changing an
 - Design lives in `includes/schema.php`. Tables: admin_users, login_attempts, media, settings (key/value), counters, services, service_images, clients, project_categories, projects, project_images, project_services, team_members, blog_categories, blog_posts, certifications, testimonials, contact_messages.
 - Content tables have `status` ('draft'/'published'), `sort_order`, `created_at`, `updated_at`; slugs are UNIQUE.
 - Setup is complete on the live site and admin/setup.php was deleted.
-- Upgrades: `includes/migrations.php` runs numbered steps automatically when an admin opens any admin page (`settings.schema_version`, currently 3). To change the database: update schema.php (fresh installs) AND add the next numbered, idempotent step to migrations.php (bump SCHEMA_VERSION).
+- Upgrades: `includes/migrations.php` runs numbered steps automatically when an admin opens any admin page (`settings.schema_version`, currently 4). To change the database: update schema.php (fresh installs) AND add the next numbered, idempotent step to migrations.php (bump SCHEMA_VERSION).
 - v2 added: `media.title`, `service_images` (service gallery), all Site Settings keys, company details, 3 starter services (drafts).
 - v3 added: `projects.project_status` (completed/ongoing), `project_services` (project ↔ service), `clients.show_in_marquee`, `team_members.department` (and DROPPED `team_members.phone` — never store staff phone numbers or home addresses), `blog_posts.tags`, `.reading_minutes`, `.author_team_id` (author = admin OR team member), `certifications.grade`, `.show_number`.
+- v4 added settings: `site_live` ('0' = preview), `home_meta_title`, `home_*` section texts (eyebrow/title per section, about heading/image, `home_process` JSON steps, CTA heading/text).
 - Public pages must respect: status = 'published'; blog posts also `published_at <= NOW()` (future = scheduled); team uses status as "Shown on website"; certifications hide `registration_number` when `show_number = 0`; logo marquee = clients with `show_in_marquee = 1`; home showcase = projects with `is_featured = 1`.
 - Settings are key/value (`includes/settings.php`: `setting()`, `save_settings()`); media references in settings store the media ID (keys listed in `media_setting_keys()`).
 
@@ -75,6 +76,19 @@ These rules apply to EVERY task in this repository. Read them before changing an
 - Upload rules: JPG/PNG/WebP/PDF, max 8 MB, real type checked with finfo, images decoded + re-encoded to WebP (EXIF/GPS removed, rotation applied), sizes lg 1920 / md 1024 / sm 400, random names in `../private/uploads/<2 chars>/`. Alt text required for images.
 - Public URLs: `/media/<id>/<slug>.webp`, `/media/<id>/md/…`, `/media/<id>/sm/…`, `/media/<id>/<slug>.pdf` → router.php → media.php (no session, 1-year immutable cache, ETag/304, PDFs inline). Use `media_url($row, 'md')` in templates.
 
+## Public website (Step 5)
+- Every public page: `define('MT_PUBLIC_PAGE', true); require __DIR__ . '/includes/site.php'; site_gate(); site_head([...]); …; site_footer();` (see index.php).
+  - MT_PUBLIC_PAGE = no session/cookie for normal visitors (a session only opens if the visitor already has the admin cookie).
+  - `site_gate($isHome)`: Website live → everyone; not live + logged-in admin → page + orange "Preview mode" bar + noindex; not live + visitor → home shows `includes/coming_soon.php`, other pages redirect home. Switch: Site Settings › Website status.
+  - `site_head()` meta: title, description, path, active, hero (transparent header), preload (hero media row; also og:image fallback), og_image, jsonld.
+  - Helpers in includes/site.php: `s()`, `site_media()`, `media_img()` (srcset sm/md/lg + width/height + lazy), `media_dims()`, `whatsapp_link()`, `tel_link()`, `social_links()`, `site_services()`, `section_head()`, `json_ld()`.
+- Design system: ONE file `assets/css/site.css` (tokens on :root: colours, fluid type --step-*, spacing, radius, shadows; buttons .btn--primary/secondary/ghost/ghost-light; .eyebrow; .section-title; .card; .badge; .container; .grid-12). Fonts self-hosted in assets/fonts: Bricolage Grotesque (headings) + Inter (body), variable WOFF2, OFL licences included.
+  - Contrast rules: orange buttons use charcoal text (never white on orange); orange TEXT on light backgrounds uses --orange-ink #B5490C.
+- Animations: `assets/js/site.js` + GSAP 3.15.0 (gsap, ScrollTrigger, SplitText) and Lenis 1.3.26 from jsDelivr, pinned, with SRI hashes in `SITE_SCRIPTS` (includes/site.php). To upgrade: pick a version ≥2 weeks old, recompute sha384 from the npm package files, update URL + hash.
+  - Markup hooks: data-reveal, data-reveal-group/data-reveal-item, data-split (words), data-split-lines, data-mask-reveal, data-count, data-parallax, data-hscroll/data-hscroll-track (pinned horizontal, desktop only), data-timeline(-progress), data-slider.
+  - Content is visible without JS; hero text uses CSS-only animation; prefers-reduced-motion → no Lenis, no parallax, no pinning, fades only.
+  - Bump `SITE_ASSET_VERSION` in includes/site.php after changing site.css/site.js.
+
 ## Pages (built step by step)
 Home, About, Services (+ detail pages), Projects (+ detail pages), Clients, Team, Blog (+ posts), Certifications & Registrations, Contact (form + WhatsApp + map), Privacy Policy, plus a Staff Login link to portal.majidtraders.org.
 
@@ -83,7 +97,7 @@ Home, About, Services (+ detail pages), Projects (+ detail pages), Clients, Team
 /                     website root (= public_html)
 ├── .htaccess         redirects, clean URLs, security headers, blocking rules
 ├── .user.ini         PHP settings (errors hidden from visitors)
-├── index.php         home page
+├── index.php         home page (all sections from the database)
 ├── error.php         friendly error page (403/404/500/503)
 ├── router.php        clean-URL router: .htaccess sends every non-file address here
 ├── media.php         serves Media Library files (/media/<id>/...)
@@ -92,7 +106,8 @@ Home, About, Services (+ detail pages), Projects (+ detail pages), Clients, Team
 ├── assets/
 │   ├── css/          stylesheets
 │   ├── js/           scripts
-│   └── img/          logo, favicon, static design images (not uploads)
+│   ├── img/          logo, favicon, static design images (not uploads)
+│   └── fonts/        self-hosted WOFF2 fonts + OFL licences
 ├── includes/         shared PHP — blocked from web
 │   ├── helpers.php   e(), is_https(), show_error_page() — no DB/config needed
 │   ├── bootstrap.php loads ../private/config.php, secure session, db() PDO, CSRF helpers
@@ -105,6 +120,8 @@ Home, About, Services (+ detail pages), Projects (+ detail pages), Clients, Team
 │   ├── migrations.php automatic numbered database upgrades
 │   ├── sanitize.php  clean_html() via HTML Purifier
 │   ├── settings.php  setting(), save_settings()
+│   ├── site.php      public website framework (gate/preview, head, header, footer, image helpers)
+│   ├── coming_soon.php  coming-soon page for visitors while the site is not live
 │   └── schema.php    full database design (CREATE TABLE IF NOT EXISTS ...)
 ├── lib/              third-party PHP libraries — blocked from web
 │   └── htmlpurifier/ HTML Purifier 4.19.1 (LGPL-2.1, library folder only)

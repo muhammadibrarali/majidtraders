@@ -566,30 +566,34 @@
   }
 
   // ------------------------------------------------------------ 11. counter rows
+  // Repeating rows (counters, process steps): add, move up/down, mark for removal.
   function initCounterRows() {
-    var list = $('[data-counter-list]');
-    if (!list) return;
-    var tpl = $('[data-counter-template]');
-    $('[data-counter-add]').addEventListener('click', function () {
-      var key = 'n' + Date.now();
-      var wrap = document.createElement('ul');
-      wrap.innerHTML = tpl.innerHTML.replace(/__KEY__/g, key);
-      var row = wrap.firstElementChild;
-      list.appendChild(row);
-      $('input[name$="[value]"]', row).focus();
+    $$('[data-repeat]').forEach(function (box) {
+      var list = $('[data-repeat-list]', box), tpl = $('[data-repeat-template]', box), add = $('[data-repeat-add]', box);
+      if (!list || !tpl) return;
+      if (add) add.addEventListener('click', function () {
+        var key = 'n' + Date.now();
+        var wrap = document.createElement('ul');
+        wrap.innerHTML = tpl.innerHTML.replace(/__KEY__/g, key);
+        var row = wrap.firstElementChild;
+        list.appendChild(row);
+        var first = $('input:not([type=hidden]):not([type=checkbox]), textarea', row);
+        if (first) first.focus();
+        changed(list);
+      });
+      list.addEventListener('click', function (e) {
+        var b = e.target.closest('[data-row-move]');
+        if (!b) return;
+        var row = b.closest('[data-repeat-row]');
+        if (b.getAttribute('data-row-move') === '-1' && row.previousElementSibling) list.insertBefore(row, row.previousElementSibling);
+        else if (b.getAttribute('data-row-move') === '1' && row.nextElementSibling) list.insertBefore(row.nextElementSibling, row);
+        changed(list);
+        b.focus();
+      });
+      list.addEventListener('change', function (e) {
+        if (e.target.matches('[data-row-remove]')) e.target.closest('[data-repeat-row]').classList.toggle('is-removed', e.target.checked);
+      });
+      $$('[data-row-remove]', list).forEach(function (c) { if (c.checked) c.closest('[data-repeat-row]').classList.add('is-removed'); });
     });
-    list.addEventListener('click', function (e) {
-      var b = e.target.closest('[data-row-move]');
-      if (!b) return;
-      var row = b.closest('[data-counter-row]');
-      if (b.getAttribute('data-row-move') === '-1' && row.previousElementSibling) list.insertBefore(row, row.previousElementSibling);
-      else if (b.getAttribute('data-row-move') === '1' && row.nextElementSibling) list.insertBefore(row.nextElementSibling, row);
-      changed(list);
-      b.focus();
-    });
-    list.addEventListener('change', function (e) {
-      if (e.target.matches('[data-row-remove]')) e.target.closest('[data-counter-row]').classList.toggle('is-removed', e.target.checked);
-    });
-    $$('[data-row-remove]', list).forEach(function (c) { if (c.checked) c.closest('[data-counter-row]').classList.add('is-removed'); });
   }
 })();

@@ -14,15 +14,31 @@ $count = static function (string $table) use ($pdo): array {
     return [(int) $row['total'], (int) $row['published']];
 };
 
+// [label, icon, link, total, sub-text]
+$stats = [];
+foreach ([
+    ['Services',       'briefcase', '/admin/services',       'services',       'published'],
+    ['Projects',       'building',  '/admin/projects',       'projects',       'published'],
+    ['Clients',        'handshake', '/admin/clients',        'clients',        'published'],
+    ['Team',           'users',     '/admin/team',           'team_members',   'shown on website'],
+    ['Certifications', 'award',     '/admin/certifications', 'certifications', 'published'],
+    ['Testimonials',   'quote',     '/admin/testimonials',   'testimonials',   'published'],
+] as [$label, $icon, $url, $table, $word]) {
+    [$total, $published] = $count($table);
+    $stats[] = [$label, $icon, $url, $total, $published . ' ' . $word];
+}
+$blog = $pdo->query("SELECT COUNT(*) AS total,
+        COALESCE(SUM(status = 'published' AND (published_at IS NULL OR published_at <= NOW())), 0) AS live,
+        COALESCE(SUM(status = 'published' AND published_at > NOW()), 0) AS scheduled FROM blog_posts")->fetch();
+array_splice($stats, 4, 0, [['Blog posts', 'pen', '/admin/blog', (int) $blog['total'],
+    (int) $blog['live'] . ' live' . ((int) $blog['scheduled'] ? ' · ' . (int) $blog['scheduled'] . ' scheduled' : '')]]);
 $mediaCount = (int) $pdo->query('SELECT COUNT(*) FROM media')->fetchColumn();
-$stats = [
-    ['Services',   'briefcase', '/admin/services', ...$count('services')],
-    ['Projects',   'building',  '/admin/projects', ...$count('projects')],
-    ['Clients',    'handshake', '/admin/clients',  ...$count('clients')],
-    ['Team',       'users',     '/admin/team',     ...$count('team_members')],
-    ['Blog posts', 'pen',       '/admin/blog',     ...$count('blog_posts')],
-];
-$unread = (int) $pdo->query("SELECT COUNT(*) FROM contact_messages WHERE status = 'new'")->fetchColumn();
+$unread = admin_unread_count();
+
+// Certificates expiring within 60 days (or already expired)
+$expiring = $pdo->query("SELECT id, title, registration_number, expiry_date, DATEDIFF(expiry_date, CURDATE()) AS days_left
+                         FROM certifications WHERE expiry_date IS NOT NULL AND expiry_date <= CURDATE() + INTERVAL 60 DAY
+                         ORDER BY expiry_date")->fetchAll();
 
 $prevLogin = $_SESSION['admin_prev_login'] ?? null;
 $prevIp    = $_SESSION['admin_prev_ip'] ?? null;
@@ -31,13 +47,36 @@ admin_page_start('Dashboard', 'dashboard', $admin);
 ?>
   <p class="lead">Welcome back, <strong><?= e($admin['name']) ?></strong>.</p>
 
+  <?php if ($expiring): ?>
+  <section class="card card--warning" aria-labelledby="expiry-title">
+    <h2 id="expiry-title"><?= admin_icon('award') ?> <span>Certificates need attention</span></h2>
+    <ul class="expiry-list">
+      <?php foreach ($expiring as $c): $d = (int) $c['days_left']; ?>
+        <li>
+          <a href="/admin/certifications?action=edit&amp;id=<?= (int) $c['id'] ?>"><?= e($c['title']) ?></a>
+          <?= $c['registration_number'] ? '<span class="muted">(' . e($c['registration_number']) . ')</span>' : '' ?>
+          <span class="badge badge--<?= $d < 0 ? 'danger' : 'warn' ?>"><?= $d < 0 ? 'Expired ' . abs($d) . ' day' . (abs($d) === 1 ? '' : 's') . ' ago' : ($d === 0 ? 'Expires today' : 'Expires in ' . $d . ' day' . ($d === 1 ? '' : 's')) ?></span>
+          <span class="muted small"><?= e(date('j M Y', strtotime((string) $c['expiry_date']))) ?></span>
+        </li>
+      <?php endforeach; ?>
+    </ul>
+    <p class="muted small">Renew these, then update the expiry date and document under Certifications.</p>
+  </section>
+  <?php endif; ?>
+
   <section class="stats" aria-label="Website content overview">
-    <?php foreach ($stats as [$label, $icon, $url, $total, $published]): ?>
+    <a class="stat stat--accent" href="/admin/messages">
+      <span class="stat__icon"><?= admin_icon('mail') ?></span>
+      <span class="stat__value"><?= $unread ?></span>
+      <span class="stat__label">Unread messages</span>
+      <span class="stat__sub">from the contact form</span>
+    </a>
+    <?php foreach ($stats as [$label, $icon, $url, $total, $sub]): ?>
       <a class="stat" href="<?= e($url) ?>">
         <span class="stat__icon"><?= admin_icon($icon) ?></span>
         <span class="stat__value"><?= $total ?></span>
         <span class="stat__label"><?= e($label) ?></span>
-        <span class="stat__sub"><?= $published ?> published</span>
+        <span class="stat__sub"><?= e($sub) ?></span>
       </a>
     <?php endforeach; ?>
     <a class="stat" href="/admin/media">
@@ -45,12 +84,6 @@ admin_page_start('Dashboard', 'dashboard', $admin);
       <span class="stat__value"><?= $mediaCount ?></span>
       <span class="stat__label">Media files</span>
       <span class="stat__sub">images &amp; PDFs</span>
-    </a>
-    <a class="stat stat--accent" href="/admin/messages">
-      <span class="stat__icon"><?= admin_icon('mail') ?></span>
-      <span class="stat__value"><?= $unread ?></span>
-      <span class="stat__label">Unread messages</span>
-      <span class="stat__sub">from the contact form</span>
     </a>
   </section>
 

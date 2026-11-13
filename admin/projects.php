@@ -1,8 +1,73 @@
 <?php
-/** /admin/projects — not built yet. */
+/** Projects manager — /admin/projects (uses the reusable admin manager). */
 declare(strict_types=1);
 
-require dirname(__DIR__) . '/includes/auth.php';
-require ROOT_PATH . '/includes/admin_layout.php';
+require dirname(__DIR__) . '/includes/admin_crud.php';
 
-admin_coming_soon('projects');
+crud_run([
+    'key'      => 'projects',
+    'table'    => 'projects',
+    'singular' => 'project',
+    'plural'   => 'projects',
+    'label'    => 'Projects',
+    'title'    => 'title',
+    'image'    => 'cover_image_id',
+    'summary'  => 'excerpt',
+    'search'   => ['title', 'excerpt', 'location', 'client_department'],
+    'view_url' => '/projects/{slug}',
+    'seo'      => true,
+    'page_actions' => '<a class="btn btn--ghost" href="/admin/project-categories">' . icon_svg('sliders', 18) . '<span>Manage categories</span></a>',
+    'filters'  => [
+        ['name' => 'category', 'column' => 't.category_id', 'label' => 'All categories',
+         'options' => static fn () => options_from('SELECT id AS k, name AS v FROM project_categories ORDER BY sort_order, name')],
+        ['name' => 'year', 'column' => 't.year', 'label' => 'All years',
+         'options' => static fn () => options_from('SELECT DISTINCT year AS k, year AS v FROM projects WHERE year IS NOT NULL ORDER BY year DESC')],
+        ['name' => 'progress', 'column' => 't.project_status', 'label' => 'Completed & ongoing',
+         'options' => ['completed' => 'Completed only', 'ongoing' => 'Ongoing only']],
+        ['name' => 'client', 'column' => 't.client_id', 'label' => 'All clients',
+         'options' => static fn () => options_from('SELECT id AS k, name AS v FROM clients ORDER BY name')],
+    ],
+    'list_select' => '(SELECT name FROM clients c WHERE c.id = t.client_id) AS client_name,
+                      (SELECT name FROM project_categories pc WHERE pc.id = t.category_id) AS category_name',
+    'list_meta'   => static fn (array $r): string => implode(' · ', array_filter(array_map('strval', [
+        $r['client_name'] ?: $r['client_department'], $r['location'], $r['year'], $r['category_name'],
+    ]))),
+    'list_badges' => static fn (array $r): array => array_values(array_filter([
+        $r['project_status'] === 'ongoing' ? ['Ongoing', 'ongoing'] : ['Completed', 'neutral'],
+        $r['is_featured'] ? ['On home page', 'featured'] : null,
+    ])),
+    'fields' => [
+        ['name' => 'title', 'type' => 'text', 'label' => 'Project title', 'required' => true, 'max' => 190,
+         'help' => 'For example “Renovation of Government High School No. 2, Mardan”.'],
+        ['name' => 'slug', 'type' => 'slug', 'label' => 'Web address', 'from' => 'title', 'prefix' => 'majidtraders.org/projects/',
+         'help' => 'Made automatically from the title. Changing it later breaks old links.'],
+        ['name' => 'client_id', 'type' => 'select', 'label' => 'Client', 'empty' => '— No client selected —',
+         'options' => static fn () => options_from('SELECT id AS k, name AS v FROM clients ORDER BY name'),
+         'help' => 'Choose from your Clients list. Add new clients under “Clients” first.'],
+        ['name' => 'client_department', 'type' => 'text', 'label' => 'Client department', 'max' => 190,
+         'help' => 'Optional, e.g. “C&W Department, Mardan Division”. Shown if no client is chosen.'],
+        ['name' => 'location', 'type' => 'text', 'label' => 'Location (district / city)', 'max' => 150, 'placeholder' => 'Mardan'],
+        ['name' => 'year', 'type' => 'int', 'label' => 'Year', 'min' => 1980, 'max' => (int) date('Y') + 5, 'placeholder' => date('Y'),
+         'help' => 'Year the project was completed (or started, if ongoing).'],
+        ['name' => 'category_id', 'type' => 'select', 'label' => 'Category', 'empty' => '— No category —',
+         'options' => static fn () => options_from('SELECT id AS k, name AS v FROM project_categories ORDER BY sort_order, name'),
+         'help' => 'Manage the list with the “Manage categories” button on the Projects page.'],
+        ['name' => 'services', 'type' => 'checkboxes', 'label' => 'Related services',
+         'options' => static fn () => options_from('SELECT id AS k, title AS v FROM services ORDER BY sort_order, title'),
+         'link_table' => 'project_services', 'link_fk' => 'project_id', 'link_other' => 'service_id',
+         'help' => 'Tick the services this project belongs to.', 'empty' => 'No services yet — add them under “Services”.'],
+        ['name' => 'excerpt', 'type' => 'textarea', 'label' => 'Short summary', 'max' => 500, 'rows' => 3, 'counter' => true, 'recommend' => [80, 220],
+         'help' => 'One or two sentences shown on project cards.'],
+        ['name' => 'body', 'type' => 'richtext', 'label' => 'Full description',
+         'help' => 'Scope of work, challenges, results. Use headings and bullet points.'],
+        ['name' => 'cover_image_id', 'type' => 'media', 'label' => 'Cover image', 'accept' => 'image',
+         'help' => 'Main photo shown on cards and at the top of the project page. Landscape photos work best.'],
+        ['name' => 'gallery', 'type' => 'gallery', 'label' => 'Photo gallery', 'link_table' => 'project_images', 'link_fk' => 'project_id', 'captions' => true,
+         'help' => 'Before / during / after photos. Use the arrows to reorder; captions are optional.'],
+        // Side column
+        ['name' => 'project_status', 'type' => 'select', 'label' => 'Project progress', 'side' => true,
+         'options' => ['completed' => 'Completed', 'ongoing' => 'Ongoing']],
+        ['name' => 'is_featured', 'type' => 'switch', 'label' => 'Feature on home page', 'side' => true,
+         'help' => 'Shown in the project showcase on the home page.'],
+    ],
+]);

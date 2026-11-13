@@ -142,15 +142,15 @@ function field_switch(string $name, string $label, bool $checked, array $opt = [
         . (!empty($opt['help']) ? '<p class="help">' . e($opt['help']) . '</p>' : '') . '</div>';
 }
 
-/** Draft / Published switch. */
-function field_status(string $value): string
+/** Draft / Published switch (labels can be changed, e.g. Hidden / Shown on website). */
+function field_status(string $value, array $labels = ['draft' => 'Draft', 'published' => 'Published'], string $help = 'Only Published items appear on the website.'): string
 {
     return '<div class="field field--status">'
         . '<span class="field__label">Status</span>'
         . '<div class="segmented" role="radiogroup" aria-label="Status">'
-        . '<label><input type="radio" name="status" value="draft"' . ($value !== 'published' ? ' checked' : '') . '><span>Draft</span></label>'
-        . '<label><input type="radio" name="status" value="published"' . ($value === 'published' ? ' checked' : '') . '><span>Published</span></label>'
-        . '</div><p class="help">Only <strong>Published</strong> items appear on the website.</p></div>';
+        . '<label><input type="radio" name="status" value="draft"' . ($value !== 'published' ? ' checked' : '') . '><span>' . e($labels['draft']) . '</span></label>'
+        . '<label><input type="radio" name="status" value="published"' . ($value === 'published' ? ' checked' : '') . '><span>' . e($labels['published']) . '</span></label>'
+        . '</div><p class="help">' . e($help) . '</p></div>';
 }
 
 /**
@@ -172,29 +172,36 @@ function field_media(string $name, string $label, ?array $media, array $opt = []
     return $html . field_close($name, $errors);
 }
 
-/** Choose several images (ordered). Posts $name[] = media IDs. */
+/**
+ * Choose several images (ordered). Posts $name[] = media IDs and, with
+ * captions enabled, $name_caption[] = caption for each image.
+ * $items = media rows; each may carry a 'caption' key.
+ */
 function field_gallery(string $name, string $label, array $items, array $opt = [], array $errors = []): string
 {
+    $captions = !empty($opt['captions']);
     $html = field_open($name, $label, $opt, $errors, 'field--gallery');
-    $html .= '<div class="gallery-field" data-gallery-field data-name="' . e($name) . '[]">'
+    $html .= '<div class="gallery-field' . ($captions ? ' gallery-field--captions' : '') . '" data-gallery-field data-name="' . e($name) . '"' . ($captions ? ' data-captions' : '') . '>'
         . '<ul class="gallery-field__list" data-gallery-list>';
     foreach ($items as $m) {
-        $html .= gallery_item_html($name, $m);
+        $html .= gallery_item_html($name, $m, $captions);
     }
     $html .= '</ul><button type="button" class="btn btn--small btn--ghost" data-gallery-add>' . icon_svg('plus', 18) . '<span>Add images</span></button>'
         . '<noscript><p class="help">Please enable JavaScript to choose images.</p></noscript></div>';
     return $html . field_close($name, $errors);
 }
 
-function gallery_item_html(string $name, array $m): string
+function gallery_item_html(string $name, array $m, bool $captions = false): string
 {
     return '<li class="gallery-item"><input type="hidden" name="' . e($name) . '[]" value="' . (int) $m['id'] . '">'
-        . '<img src="' . e(media_url($m, 'sm')) . '" alt="' . e((string) $m['alt_text']) . '" loading="lazy">'
+        . '<span class="gallery-item__img"><img src="' . e(media_url($m, 'sm')) . '" alt="' . e((string) $m['alt_text']) . '" loading="lazy">'
         . '<span class="gallery-item__tools">'
         . '<button type="button" data-gallery-move="-1" title="Move left">' . icon_svg('up', 16) . '<span class="visually-hidden">Move earlier</span></button>'
         . '<button type="button" data-gallery-move="1" title="Move right">' . icon_svg('down', 16) . '<span class="visually-hidden">Move later</span></button>'
         . '<button type="button" data-gallery-remove title="Remove">' . icon_svg('close', 16) . '<span class="visually-hidden">Remove</span></button>'
-        . '</span></li>';
+        . '</span></span>'
+        . ($captions ? '<input type="text" class="gallery-item__caption" name="' . e($name) . '_caption[]" value="' . e((string) ($m['caption'] ?? '')) . '" maxlength="255" placeholder="Caption (optional)" aria-label="Caption">' : '')
+        . '</li>';
 }
 
 /** Small preview for a chosen media item. */
@@ -204,6 +211,69 @@ function media_preview_html(array $m): string
         return '<img src="' . e(media_url($m, 'sm')) . '" alt="' . e((string) $m['alt_text']) . '"><span class="media-field__name">' . e($m['title'] ?: $m['original_name']) . '</span>';
     }
     return '<span class="file-badge">' . icon_svg('file', 28) . '<span>PDF</span></span><span class="media-field__name">' . e($m['title'] ?: $m['original_name']) . '</span>';
+}
+
+/** A list of tick boxes (e.g. related services). $selected = list of chosen keys. */
+function field_checkboxes(string $name, string $label, array $selected, array $options, array $opt = [], array $errors = []): string
+{
+    $selected = array_map('strval', $selected);
+    $html = '<fieldset class="field checkbox-field' . (isset($errors[$name]) ? ' has-error' : '') . '" id="f-' . e($name) . '"><legend>' . e($label) . '</legend>';
+    if (!empty($opt['help'])) {
+        $html .= '<p class="help">' . e($opt['help']) . '</p>';
+    }
+    if (!$options) {
+        $html .= '<p class="muted small">' . e($opt['empty'] ?? 'Nothing to choose yet.') . '</p>';
+    }
+    $html .= '<div class="checkbox-list">';
+    foreach ($options as $k => $v) {
+        $html .= '<label class="check"><input type="checkbox" name="' . e($name) . '[]" value="' . e((string) $k) . '"'
+            . (in_array((string) $k, $selected, true) ? ' checked' : '') . '><span>' . e($v) . '</span></label>';
+    }
+    return $html . '</div>' . (isset($errors[$name]) ? '<p class="field-error">' . e($errors[$name]) . '</p>' : '') . '</fieldset>';
+}
+
+/** Value for <input type="date"> / <input type="datetime-local"> from a database value. */
+function date_input_value(?string $value, bool $withTime): string
+{
+    if ($value === null || $value === '' || str_starts_with($value, '0000')) {
+        return '';
+    }
+    if (preg_match('/^\d{4}-\d{2}-\d{2}(T\d{2}:\d{2})?$/', $value)) {
+        return $withTime && strlen($value) === 10 ? $value . 'T09:00' : $value; // already in input format
+    }
+    $ts = strtotime($value);
+    return $ts ? date($withTime ? 'Y-m-d\TH:i' : 'Y-m-d', $ts) : '';
+}
+
+/** Ordered gallery items from the form: [['id' => 12, 'caption' => '…'], …] (images only). */
+function post_gallery_items(string $name, int $max = 60): array
+{
+    $ids = (array) ($_POST[$name] ?? []);
+    $caps = (array) ($_POST[$name . '_caption'] ?? []);
+    $items = [];
+    $seen = [];
+    foreach (array_values($ids) as $i => $v) {
+        $id = (int) $v;
+        if ($id <= 0 || isset($seen[$id])) {
+            continue;
+        }
+        $seen[$id] = true;
+        $cap = is_string($caps[$i] ?? null) ? mb_substr(trim($caps[$i]), 0, 255) : '';
+        $items[] = ['id' => $id, 'caption' => $cap];
+    }
+    $valid = post_gallery_valid_ids(array_column(array_slice($items, 0, $max), 'id'));
+    return array_values(array_filter(array_slice($items, 0, $max), static fn ($it) => in_array($it['id'], $valid, true)));
+}
+
+/** Which of these IDs are existing images? */
+function post_gallery_valid_ids(array $ids): array
+{
+    if (!$ids) {
+        return [];
+    }
+    $stmt = db()->prepare("SELECT id FROM media WHERE kind = 'image' AND id IN (" . implode(',', array_fill(0, count($ids), '?')) . ')');
+    $stmt->execute(array_values($ids));
+    return array_map('intval', $stmt->fetchAll(PDO::FETCH_COLUMN));
 }
 
 /** Box at the top of a form listing all problems. */
@@ -238,7 +308,7 @@ function post_media_id(string $name, string $kind = 'image'): ?int
         return null;
     }
     $m = media_find($id);
-    return $m && $m['kind'] === $kind ? $id : null;
+    return $m && ($kind === 'any' || $m['kind'] === $kind) ? $id : null;
 }
 
 /** Ordered list of image IDs from a gallery field. */

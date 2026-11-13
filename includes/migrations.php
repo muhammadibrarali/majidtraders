@@ -11,12 +11,26 @@
  */
 declare(strict_types=1);
 
-const SCHEMA_VERSION = 2;
+const SCHEMA_VERSION = 3;
 
 function column_exists(PDO $pdo, string $table, string $column): bool
 {
     $stmt = $pdo->prepare('SELECT COUNT(*) FROM information_schema.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = ? AND COLUMN_NAME = ?');
     $stmt->execute([$table, $column]);
+    return (int) $stmt->fetchColumn() > 0;
+}
+
+function constraint_exists(PDO $pdo, string $table, string $name): bool
+{
+    $stmt = $pdo->prepare('SELECT COUNT(*) FROM information_schema.TABLE_CONSTRAINTS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = ? AND CONSTRAINT_NAME = ?');
+    $stmt->execute([$table, $name]);
+    return (int) $stmt->fetchColumn() > 0;
+}
+
+function index_exists(PDO $pdo, string $table, string $name): bool
+{
+    $stmt = $pdo->prepare('SELECT COUNT(*) FROM information_schema.STATISTICS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = ? AND INDEX_NAME = ?');
+    $stmt->execute([$table, $name]);
     return (int) $stmt->fetchColumn() > 0;
 }
 
@@ -119,6 +133,42 @@ function migration_steps(): array
             $svc->execute(['General Order Supply', 'general-order-supply', 'package',
                 'On-time supply of office, school, hospital and industrial goods for government and private orders.',
                 '<p><strong>Placeholder text — please replace.</strong> Describe the goods you supply, typical customers, delivery areas and how orders are handled.</p>', 30]);
+        }
+    },
+
+    // ------------------------------------------------------------------ v3
+    // Projects (status, related services), clients (marquee), team
+    // (department, no personal phone numbers), blog (tags, reading time,
+    // team authors), certifications (grade, show number, expiry index).
+    3 => static function (PDO $pdo): void {
+        $add = static function (string $table, string $column, string $definition) use ($pdo): void {
+            if (!column_exists($pdo, $table, $column)) {
+                $pdo->exec("ALTER TABLE `$table` ADD COLUMN `$column` $definition");
+            }
+        };
+        $add('projects', 'project_status', "ENUM('completed','ongoing') NOT NULL DEFAULT 'completed' AFTER `year`");
+        $tables = require ROOT_PATH . '/includes/schema.php';
+        $pdo->exec($tables['project_services']);
+
+        $add('clients', 'show_in_marquee', 'TINYINT(1) NOT NULL DEFAULT 1 AFTER is_featured');
+
+        $add('team_members', 'department', 'VARCHAR(60) NULL AFTER `position`');
+        if (column_exists($pdo, 'team_members', 'phone')) {
+            // Personal phone numbers must not be stored (owner's rule).
+            $pdo->exec('ALTER TABLE team_members DROP COLUMN phone');
+        }
+
+        $add('blog_posts', 'author_team_id', 'INT UNSIGNED NULL AFTER author_id');
+        $add('blog_posts', 'tags', 'VARCHAR(255) NULL AFTER body');
+        $add('blog_posts', 'reading_minutes', 'SMALLINT UNSIGNED NULL AFTER tags');
+        if (!constraint_exists($pdo, 'blog_posts', 'fk_blog_author_team')) {
+            $pdo->exec('ALTER TABLE blog_posts ADD CONSTRAINT fk_blog_author_team FOREIGN KEY (author_team_id) REFERENCES team_members (id) ON DELETE SET NULL');
+        }
+
+        $add('certifications', 'grade', 'VARCHAR(60) NULL AFTER registration_number');
+        $add('certifications', 'show_number', 'TINYINT(1) NOT NULL DEFAULT 1 AFTER grade');
+        if (!index_exists($pdo, 'certifications', 'idx_cert_expiry')) {
+            $pdo->exec('ALTER TABLE certifications ADD KEY idx_cert_expiry (expiry_date)');
         }
     },
 

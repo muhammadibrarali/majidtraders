@@ -38,6 +38,7 @@
   function changed(node) { node.dispatchEvent(new Event('change', { bubbles: true })); }
   function formatBytes(b) { return b >= 1048576 ? (b / 1048576).toFixed(1) + ' MB' : Math.max(1, Math.round(b / 1024)) + ' KB'; }
   function fileProblem(file, accept) {
+    if (accept === 'any') accept = '';
     var isImg = IMAGE_TYPES.indexOf(file.type) !== -1, isPdf = file.type === 'application/pdf';
     if (accept === 'image' && !isImg) return 'Please choose a JPG, PNG or WebP image.';
     if (accept === 'document' && !isPdf) return 'Please choose a PDF file.';
@@ -81,6 +82,12 @@
     $$('[data-gallery-field]').forEach(initGallery);
     initUploader();
     initCounterRows();
+    $$('[data-check-all]').forEach(function (all) {
+      var form = all.closest('form');
+      all.addEventListener('change', function () {
+        $$('input[name="ids[]"]', form).forEach(function (c) { c.checked = all.checked; });
+      });
+    });
     var summary = $('[data-error-summary]');
     if (summary) summary.focus();
   });
@@ -354,7 +361,7 @@
     function load(page, append) {
       var grid = $('[data-picker-grid]', dialog), status = $('[data-picker-status]', dialog);
       status.textContent = 'Loading…';
-      getJSON('/admin/media?format=json&kind=' + encodeURIComponent(opts.accept) + '&q=' + encodeURIComponent(state.q) + '&page=' + page)
+      getJSON('/admin/media?format=json&kind=' + encodeURIComponent(opts.accept === 'any' ? '' : opts.accept) + '&q=' + encodeURIComponent(state.q) + '&page=' + page)
         .then(function (data) {
           state.page = data.page; state.pages = data.pages;
           if (!append) grid.innerHTML = '';
@@ -382,7 +389,7 @@
       if (!file) return fail('Please choose a file first.');
       var problem = fileProblem(file, opts.accept);
       if (problem) return fail(problem);
-      if (opts.accept === 'image' && alt.length < 3) return fail('Please describe the image in the alt text box.');
+      if (IMAGE_TYPES.indexOf(file.type) !== -1 && alt.length < 3) return fail('Please describe the image in the alt text box.');
       var fd = new FormData();
       fd.append('action', 'upload');
       fd.append('file', file);
@@ -407,11 +414,11 @@
         if (!dialog) build();
         opts = o;
         state = { page: 1, pages: 1, q: '', selected: [] };
-        var isDoc = o.accept === 'document';
-        $('#picker-title', dialog).textContent = isDoc ? 'Choose a PDF' : (o.multiple ? 'Choose images' : 'Choose an image');
+        var isDoc = o.accept === 'document', isAny = o.accept === 'any';
+        $('#picker-title', dialog).textContent = isAny ? 'Choose a file' : isDoc ? 'Choose a PDF' : (o.multiple ? 'Choose images' : 'Choose an image');
         $('[data-picker-file]', dialog).value = '';
-        $('[data-picker-file]', dialog).setAttribute('accept', isDoc ? 'application/pdf' : IMAGE_TYPES.join(','));
-        $('[data-picker-file-help]', dialog).textContent = isDoc ? 'PDF, up to 8 MB.' : 'JPG, PNG or WebP, up to 8 MB.';
+        $('[data-picker-file]', dialog).setAttribute('accept', isAny ? IMAGE_TYPES.concat('application/pdf').join(',') : isDoc ? 'application/pdf' : IMAGE_TYPES.join(','));
+        $('[data-picker-file-help]', dialog).textContent = isAny ? 'PDF, JPG, PNG or WebP, up to 8 MB. Images need alt text.' : isDoc ? 'PDF, up to 8 MB.' : 'JPG, PNG or WebP, up to 8 MB.';
         $('[data-picker-alt-wrap]', dialog).hidden = isDoc;
         $('[data-picker-alt]', dialog).value = '';
         $('[data-picker-title]', dialog).value = '';
@@ -442,19 +449,20 @@
   }
 
   function initGallery(box) {
-    var list = $('[data-gallery-list]', box), name = box.getAttribute('data-name');
+    var list = $('[data-gallery-list]', box), name = box.getAttribute('data-name'), captions = box.hasAttribute('data-captions');
     $('[data-gallery-add]', box).addEventListener('click', function () {
       MediaPicker.open({ accept: 'image', multiple: true, onSelect: function (items) {
         var have = $$('input', list).map(function (i) { return i.value; });
         items.forEach(function (m) {
           if (have.indexOf(String(m.id)) !== -1) return;
           var li = el('li', { class: 'gallery-item' },
-            '<input type="hidden" name="' + esc(name) + '" value="' + m.id + '">' +
-            '<img src="' + esc(m.thumb) + '" alt="' + esc(m.alt) + '">' +
+            '<input type="hidden" name="' + esc(name) + '[]" value="' + m.id + '">' +
+            '<span class="gallery-item__img"><img src="' + esc(m.thumb) + '" alt="' + esc(m.alt) + '">' +
             '<span class="gallery-item__tools">' +
             '<button type="button" data-gallery-move="-1" title="Move left">' + ICON.up + '<span class="visually-hidden">Move earlier</span></button>' +
             '<button type="button" data-gallery-move="1" title="Move right">' + ICON.down + '<span class="visually-hidden">Move later</span></button>' +
-            '<button type="button" data-gallery-remove title="Remove">' + ICON.close + '<span class="visually-hidden">Remove</span></button></span>');
+            '<button type="button" data-gallery-remove title="Remove">' + ICON.close + '<span class="visually-hidden">Remove</span></button></span></span>' +
+            (captions ? '<input type="text" class="gallery-item__caption" name="' + esc(name) + '_caption[]" maxlength="255" placeholder="Caption (optional)" aria-label="Caption">' : ''));
           list.appendChild(li);
         });
         changed(list);

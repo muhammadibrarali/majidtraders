@@ -35,10 +35,25 @@ function admin_icon(string $name): string
     return icon_svg($name);
 }
 
+/** Number of unread contact-form messages (for the sidebar badge). */
+function admin_unread_count(): int
+{
+    static $n = null;
+    if ($n === null) {
+        try {
+            $n = (int) db()->query("SELECT COUNT(*) FROM contact_messages WHERE status = 'new'")->fetchColumn();
+        } catch (Throwable) {
+            $n = 0;
+        }
+    }
+    return $n;
+}
+
 /** Opening HTML: head, sidebar, top bar. */
 function admin_page_start(string $title, string $active, array $admin, string $actions = ''): void
 {
     $menu = admin_menu();
+    $unread = admin_unread_count();
     ?><!doctype html>
 <html lang="en" class="no-js">
 <head>
@@ -71,7 +86,7 @@ function admin_page_start(string $title, string $active, array $admin, string $a
   <nav>
     <ul class="nav">
       <?php foreach ($menu as $key => [$label, $url, $icon]): ?>
-        <li><a href="<?= e($url) ?>"<?= $key === $active ? ' class="is-active" aria-current="page"' : '' ?>><?= admin_icon($icon) ?><span><?= e($label) ?></span></a></li>
+        <li><a href="<?= e($url) ?>"<?= $key === $active ? ' class="is-active" aria-current="page"' : '' ?>><?= admin_icon($icon) ?><span><?= e($label) ?></span><?php if ($key === 'messages' && $unread > 0): ?><span class="nav__count" title="<?= $unread ?> unread"><?= $unread > 99 ? '99+' : $unread ?><span class="visually-hidden"> unread</span></span><?php endif; ?></a></li>
       <?php endforeach; ?>
       <li>
         <form method="post" action="/admin/logout">

@@ -141,6 +141,7 @@ return [
     website_url VARCHAR(255) NULL,
     description TEXT NULL,
     is_featured TINYINT(1) NOT NULL DEFAULT 0,
+    show_in_marquee TINYINT(1) NOT NULL DEFAULT 1,
     " . MT_STATUS . ",
     sort_order INT NOT NULL DEFAULT 0," . MT_TIMESTAMPS . ",
     PRIMARY KEY (id),
@@ -172,6 +173,7 @@ return [
     client_department VARCHAR(190) NULL,
     location VARCHAR(150) NULL,
     year SMALLINT UNSIGNED NULL,
+    project_status ENUM('completed','ongoing') NOT NULL DEFAULT 'completed',
     excerpt VARCHAR(500) NULL,
     body MEDIUMTEXT NULL,
     cover_image_id INT UNSIGNED NULL," . MT_SEO . ",
@@ -202,16 +204,26 @@ return [
     CONSTRAINT fk_pimg_media FOREIGN KEY (media_id) REFERENCES media (id) ON DELETE CASCADE
 ) " . MT_TABLE_OPTIONS,
 
+// Related services of a project (many-to-many)
+'project_services' => "CREATE TABLE IF NOT EXISTS project_services (
+    project_id INT UNSIGNED NOT NULL,
+    service_id INT UNSIGNED NOT NULL,
+    PRIMARY KEY (project_id, service_id),
+    KEY idx_ps_service (service_id),
+    CONSTRAINT fk_ps_project FOREIGN KEY (project_id) REFERENCES projects (id) ON DELETE CASCADE,
+    CONSTRAINT fk_ps_service FOREIGN KEY (service_id) REFERENCES services (id) ON DELETE CASCADE
+) " . MT_TABLE_OPTIONS,
+
 // ---------------------------------------------------------------- team
 'team_members' => "CREATE TABLE IF NOT EXISTS team_members (
     id INT UNSIGNED NOT NULL AUTO_INCREMENT,
     name VARCHAR(120) NOT NULL,
     slug VARCHAR(140) NOT NULL,
     position VARCHAR(120) NULL,
+    department VARCHAR(60) NULL,
     bio TEXT NULL,
     photo_id INT UNSIGNED NULL,
     email VARCHAR(190) NULL,
-    phone VARCHAR(40) NULL,
     linkedin_url VARCHAR(255) NULL,
     " . MT_STATUS . ",
     sort_order INT NOT NULL DEFAULT 0," . MT_TIMESTAMPS . ",
@@ -239,8 +251,11 @@ return [
     slug VARCHAR(220) NOT NULL,
     category_id INT UNSIGNED NULL,
     author_id INT UNSIGNED NULL,
+    author_team_id INT UNSIGNED NULL,
     excerpt VARCHAR(500) NULL,
     body MEDIUMTEXT NULL,
+    tags VARCHAR(255) NULL,
+    reading_minutes SMALLINT UNSIGNED NULL,
     cover_image_id INT UNSIGNED NULL," . MT_SEO . ",
     is_featured TINYINT(1) NOT NULL DEFAULT 0,
     " . MT_STATUS . ",
@@ -250,6 +265,7 @@ return [
     KEY idx_blog_list (status, published_at),
     CONSTRAINT fk_blog_category FOREIGN KEY (category_id) REFERENCES blog_categories (id) ON DELETE SET NULL,
     CONSTRAINT fk_blog_author FOREIGN KEY (author_id) REFERENCES admin_users (id) ON DELETE SET NULL,
+    CONSTRAINT fk_blog_author_team FOREIGN KEY (author_team_id) REFERENCES team_members (id) ON DELETE SET NULL,
     CONSTRAINT fk_blog_cover FOREIGN KEY (cover_image_id) REFERENCES media (id) ON DELETE SET NULL
 ) " . MT_TABLE_OPTIONS,
 
@@ -260,6 +276,8 @@ return [
     slug VARCHAR(200) NOT NULL,
     issuing_authority VARCHAR(190) NULL,
     registration_number VARCHAR(100) NULL,
+    grade VARCHAR(60) NULL,
+    show_number TINYINT(1) NOT NULL DEFAULT 1,
     issue_date DATE NULL,
     expiry_date DATE NULL,
     description TEXT NULL,
@@ -270,6 +288,7 @@ return [
     PRIMARY KEY (id),
     UNIQUE KEY uq_cert_slug (slug),
     KEY idx_cert_list (status, sort_order),
+    KEY idx_cert_expiry (expiry_date),
     CONSTRAINT fk_cert_image FOREIGN KEY (image_id) REFERENCES media (id) ON DELETE SET NULL,
     CONSTRAINT fk_cert_document FOREIGN KEY (document_id) REFERENCES media (id) ON DELETE SET NULL
 ) " . MT_TABLE_OPTIONS,

@@ -2,22 +2,38 @@
 /**
  * Reusable admin "manager": list page + add/edit form + delete + reorder.
  *
- * A section describes itself with a $resource array and calls crud_run():
+ * A section describes itself with a $resource array and calls crud_run().
+ * See admin/services.php (simple) and admin/projects.php (everything).
  *
- *   crud_run([
- *     'key'       => 'services',             // URL /admin/services + sidebar key
- *     'table'     => 'services',
- *     'singular'  => 'service', 'plural' => 'services', 'label' => 'Services',
- *     'title'     => 'title',                // main name column
- *     'image'     => 'image_id',             // thumbnail column (optional)
- *     'summary'   => 'excerpt',              // short text shown in the list (optional)
- *     'search'    => ['title', 'excerpt'],   // searchable columns
- *     'view_url'  => '/services/{slug}',     // "View on site" (optional)
- *     'seo'       => true,                   // meta_title + meta_description
- *     'fields'    => [ ['name' => 'title', 'type' => 'text', 'label' => 'Title', 'required' => true], … ],
- *   ]);
+ * Resource keys
+ *   key, table, singular, plural, label   URL /admin/<key>, names used in messages
+ *   title          main name column           image    thumbnail column (optional)
+ *   summary        short text column          search   searchable columns
+ *   view_url       e.g. '/projects/{slug}'    seo      true = SEO title + description
+ *   fields         list of fields (below)
+ *   menu_key       sidebar item to highlight (default: key)
+ *   sortable       false = no up/down arrows / position box (default true)
+ *   order_by       SQL ORDER BY for the list (default 't.sort_order, t.id')
+ *   status_labels  ['draft' => 'Draft', 'published' => 'Published'] + 'status_help'
+ *   filters        [['name' => 'category', 'column' => 't.category_id', 'label' => 'All categories', 'options' => [...]|callable], …]
+ *   list_select    extra SQL for the list query, e.g. '(SELECT …) AS client_name'
+ *   list_meta      fn(array $row): string     small grey line under the title
+ *   list_badges    fn(array $row): [[text, class], …]
+ *   is_live        fn(array $row): bool       is it visible on the website now? (default: published)
+ *   defaults       values for a new item, e.g. ['published_at' => date('Y-m-d H:i')]
+ *   validate       fn(array $data, array $extra, array &$errors): void
+ *   before_save    fn(array $data, ?array $existing): array
+ *   delete_check   fn(array $row): ?string    message = deleting is NOT allowed
+ *   delete_warning fn(array $row): ?string    message shown on the confirmation page
+ *   page_actions   extra HTML for the list page header (e.g. "Manage categories")
  *
- * Field types: text, slug, textarea, richtext, icon, select, switch, media, gallery.
+ * Field types
+ *   text (opt type email|tel), int (min/max), url, date, datetime, slug, textarea,
+ *   richtext, icon, select (options; 'empty' => label makes it optional → NULL),
+ *   checkboxes (options + link_table/link_fk/link_other), switch,
+ *   media (accept image|document|any), gallery (link_table/link_fk, captions),
+ *   custom (render fn($values, $row, $errors): string, collect fn(&$data, &$extra, &$errors))
+ *
  * All changes are POST + CSRF; deleting asks for confirmation first.
  */
 declare(strict_types=1);
@@ -34,10 +50,23 @@ function crud_url(array $r, array $params = []): string
     return '/admin/' . $r['key'] . ($params ? '?' . http_build_query($params) : '');
 }
 
+/** Resolve options given as an array or a function. */
+function crud_options(array|callable|null $options): array
+{
+    return is_callable($options) ? $options() : ($options ?? []);
+}
+
 function crud_run(array $r): never
 {
     $admin = require_admin();
-    $r += ['seo' => false, 'image' => null, 'summary' => null, 'view_url' => null, 'search' => [$r['title']]];
+    $r += [
+        'seo' => false, 'image' => null, 'summary' => null, 'view_url' => null,
+        'search' => [$r['title']], 'menu_key' => $r['key'], 'sortable' => true,
+        'filters' => [], 'defaults' => [], 'page_actions' => '',
+        'status_labels' => ['draft' => 'Draft', 'published' => 'Published'],
+        'status_help' => 'Only Published items appear on the website.',
+    ];
+    $r['order_by'] ??= $r['sortable'] ? 't.sort_order, t.id' : 't.id DESC';
 
     if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         crud_handle_post($r, $admin);
@@ -72,7 +101,12 @@ function crud_not_found(array $r): never
 
 function crud_view_url(array $r, array $row): ?string
 {
-    return $r['view_url'] ? str_replace('{slug}', rawurlencode((string) $row['slug']), $r['view_url']) : null;
+    return $r['view_url'] ? str_replace('{slug}', rawurlencode((string) ($row['slug'] ?? '')), $r['view_url']) : null;
+}
+
+function crud_is_live(array $r, array $row): bool
+{
+    return isset($r['is_live']) ? (bool) $r['is_live']($row) : ($row['status'] ?? '') === 'published';
 }
 
 // ---------------------------------------------------------------------------
@@ -90,12 +124,16 @@ function crud_handle_post(array $r, array $admin): never
 
     if ($action === 'delete') {
         $row = crud_find($r, $id) ?? crud_not_found($r);
+        if (isset($r['delete_check']) && ($why = $r['delete_check']($row)) !== null) {
+            flash('error', $why);
+            redirect(crud_url($r));
+        }
         db()->prepare("DELETE FROM `{$r['table']}` WHERE id = ?")->execute([$id]);
         flash('success', '“' . $row[$r['title']] . '” was deleted.');
         redirect(crud_url($r));
     }
 
-    if ($action === 'move') {
+    if ($action === 'move' && $r['sortable']) {
         crud_move($r, $id, (string) ($_POST['dir'] ?? '') === 'up' ? -1 : 1);
         redirect(crud_url($r, array_filter(['page' => (int) ($_POST['page'] ?? 1) ?: null])));
     }
@@ -107,6 +145,9 @@ function crud_handle_post(array $r, array $admin): never
             // Show the form again with what was typed and the problems.
             crud_form($r, $admin, $existing, $data + $extra, $errors);
             exit;
+        }
+        if (isset($r['before_save'])) {
+            $data = $r['before_save']($data, $existing);
         }
         $pdo = db();
         $pdo->beginTransaction();
@@ -123,9 +164,16 @@ function crud_handle_post(array $r, array $admin): never
             foreach ($r['fields'] as $f) {
                 if ($f['type'] === 'gallery') {
                     $pdo->prepare("DELETE FROM `{$f['link_table']}` WHERE `{$f['link_fk']}` = ?")->execute([$id]);
-                    $ins = $pdo->prepare("INSERT INTO `{$f['link_table']}` (`{$f['link_fk']}`, media_id, sort_order) VALUES (?, ?, ?)");
-                    foreach ($extra[$f['name']] as $i => $mediaId) {
-                        $ins->execute([$id, $mediaId, ($i + 1) * 10]);
+                    $ins = $pdo->prepare("INSERT INTO `{$f['link_table']}` (`{$f['link_fk']}`, media_id, caption, sort_order) VALUES (?, ?, ?, ?)");
+                    foreach ($extra[$f['name']] as $i => $it) {
+                        $ins->execute([$id, $it['id'], $it['caption'] !== '' ? $it['caption'] : null, ($i + 1) * 10]);
+                    }
+                }
+                if ($f['type'] === 'checkboxes') {
+                    $pdo->prepare("DELETE FROM `{$f['link_table']}` WHERE `{$f['link_fk']}` = ?")->execute([$id]);
+                    $ins = $pdo->prepare("INSERT INTO `{$f['link_table']}` (`{$f['link_fk']}`, `{$f['link_other']}`) VALUES (?, ?)");
+                    foreach ($extra[$f['name']] as $otherId) {
+                        $ins->execute([$id, $otherId]);
                     }
                 }
             }
@@ -134,9 +182,12 @@ function crud_handle_post(array $r, array $admin): never
             $pdo->rollBack();
             throw $ex;
         }
+        $saved = crud_find($r, $id);
         $msg = ucfirst($r['singular']) . ' saved.';
-        if ($data['status'] === 'draft') {
-            $msg .= ' It is a draft, so it is not shown on the website yet.';
+        if ($saved && !crud_is_live($r, $saved)) {
+            $msg .= ($saved['status'] ?? '') === 'published'
+                ? ' It will appear on the website at its publish date.'
+                : ' It is not shown on the website (status: ' . $r['status_labels']['draft'] . ').';
         }
         flash('success', $msg);
         redirect(crud_url($r, ['action' => 'edit', 'id' => $id]));
@@ -147,7 +198,7 @@ function crud_handle_post(array $r, array $admin): never
 
 /**
  * Read + validate the submitted form.
- * Returns [column data, extra data (galleries), errors].
+ * Returns [column data, extra data (galleries, tick lists), errors].
  */
 function crud_collect(array $r, ?array $existing): array
 {
@@ -158,20 +209,69 @@ function crud_collect(array $r, ?array $existing): array
     foreach ($r['fields'] as $f) {
         $n = $f['name'];
         $label = $f['label'] ?? $n;
+        $required = !empty($f['required']);
         switch ($f['type']) {
             case 'text':
             case 'textarea':
                 $v = post_str($n);
-                if (!empty($f['required']) && $v === '') {
+                if ($required && $v === '') {
                     $errors[$n] = 'Please fill in “' . $label . '”.';
                 } elseif (isset($f['max']) && mb_strlen($v) > $f['max']) {
                     $errors[$n] = '“' . $label . '” is too long (maximum ' . $f['max'] . ' characters).';
+                } elseif ($v !== '' && ($f['input'] ?? '') === 'email' && !filter_var($v, FILTER_VALIDATE_EMAIL)) {
+                    $errors[$n] = 'Please enter a valid email address in “' . $label . '”.';
                 }
                 $data[$n] = $v === '' ? null : $v;
                 break;
+            case 'int':
+                $v = str_replace([',', ' '], '', post_str($n));
+                if ($v === '') {
+                    $data[$n] = null;
+                    if ($required) {
+                        $errors[$n] = 'Please fill in “' . $label . '”.';
+                    }
+                } elseif (!preg_match('/^-?\d{1,9}$/', $v) || (isset($f['min']) && (int) $v < $f['min']) || (isset($f['max']) && (int) $v > $f['max'])) {
+                    $errors[$n] = '“' . $label . '” must be a whole number' . (isset($f['min'], $f['max']) ? ' between ' . $f['min'] . ' and ' . $f['max'] : '') . '.';
+                    $data[$n] = $v;
+                } else {
+                    $data[$n] = (int) $v;
+                }
+                break;
+            case 'url':
+                $v = post_str($n);
+                if ($v !== '' && !preg_match('#^https?://#i', $v)) {
+                    $v = 'https://' . $v;
+                }
+                if ($v !== '' && (!filter_var($v, FILTER_VALIDATE_URL) || mb_strlen($v) > 255)) {
+                    $errors[$n] = 'Please enter a full web address in “' . $label . '” (e.g. https://example.com).';
+                } elseif ($required && $v === '') {
+                    $errors[$n] = 'Please fill in “' . $label . '”.';
+                }
+                $data[$n] = $v === '' ? null : $v;
+                break;
+            case 'date':
+            case 'datetime':
+                $v = post_str($n);
+                $isDt = $f['type'] === 'datetime';
+                $data[$n] = null;
+                if ($v === '') {
+                    if ($required) {
+                        $errors[$n] = 'Please choose “' . $label . '”.';
+                    }
+                } else {
+                    $fmt = $isDt ? (strlen($v) === 16 ? 'Y-m-d\TH:i' : 'Y-m-d\TH:i:s') : 'Y-m-d';
+                    $d = DateTime::createFromFormat('!' . $fmt, $v);
+                    if (!$d || $d->format($fmt) !== $v || (int) $d->format('Y') < 1950 || (int) $d->format('Y') > 2100) {
+                        $errors[$n] = 'Please enter a valid date in “' . $label . '”.';
+                        $data[$n] = $v;
+                    } else {
+                        $data[$n] = $d->format($isDt ? 'Y-m-d H:i:s' : 'Y-m-d');
+                    }
+                }
+                break;
             case 'richtext':
                 $v = clean_html((string) ($_POST[$n] ?? ''));
-                if (!empty($f['required']) && $v === '') {
+                if ($required && $v === '') {
                     $errors[$n] = 'Please fill in “' . $label . '”.';
                 }
                 $data[$n] = $v === '' ? null : $v;
@@ -185,19 +285,42 @@ function crud_collect(array $r, ?array $existing): array
                 break;
             case 'select':
                 $v = post_str($n);
-                $data[$n] = isset($f['options'][$v]) ? $v : array_key_first($f['options']);
+                $options = crud_options($f['options']);
+                if (isset($f['empty']) && $v === '') {
+                    $data[$n] = null;
+                    if ($required) {
+                        $errors[$n] = 'Please choose “' . $label . '”.';
+                    }
+                } elseif (array_key_exists($v, $options)) {
+                    $data[$n] = $v;
+                } else {
+                    $data[$n] = isset($f['empty']) ? null : (string) array_key_first($options);
+                }
+                break;
+            case 'checkboxes':
+                $options = crud_options($f['options']);
+                $chosen = [];
+                foreach ((array) ($_POST[$n] ?? []) as $v) {
+                    if (is_scalar($v) && array_key_exists((string) $v, $options) && !in_array((int) $v, $chosen, true)) {
+                        $chosen[] = (int) $v;
+                    }
+                }
+                $extra[$n] = $chosen;
                 break;
             case 'switch':
                 $data[$n] = isset($_POST[$n]) ? 1 : 0;
                 break;
             case 'media':
                 $data[$n] = post_media_id($n, $f['accept'] ?? 'image');
-                if (!empty($f['required']) && $data[$n] === null) {
+                if ($required && $data[$n] === null) {
                     $errors[$n] = 'Please choose “' . $label . '”.';
                 }
                 break;
             case 'gallery':
-                $extra[$n] = post_gallery_ids($n);
+                $extra[$n] = post_gallery_items($n);
+                break;
+            case 'custom':
+                $f['collect']($data, $extra, $errors);
                 break;
         }
     }
@@ -243,13 +366,19 @@ function crud_collect(array $r, ?array $existing): array
     }
 
     $data['status'] = ($_POST['status'] ?? '') === 'published' ? 'published' : 'draft';
-    $order = trim((string) ($_POST['sort_order'] ?? ''));
-    if ($order !== '' && preg_match('/^-?\d{1,6}$/', $order)) {
-        $data['sort_order'] = (int) $order;
-    } elseif ($existing) {
-        $data['sort_order'] = (int) $existing['sort_order'];
-    } else {
-        $data['sort_order'] = (int) db()->query("SELECT COALESCE(MAX(sort_order), 0) + 10 FROM `{$r['table']}`")->fetchColumn();
+    if ($r['sortable']) {
+        $order = trim((string) ($_POST['sort_order'] ?? ''));
+        if ($order !== '' && preg_match('/^-?\d{1,6}$/', $order)) {
+            $data['sort_order'] = (int) $order;
+        } elseif ($existing) {
+            $data['sort_order'] = (int) $existing['sort_order'];
+        } else {
+            $data['sort_order'] = (int) db()->query("SELECT COALESCE(MAX(sort_order), 0) + 10 FROM `{$r['table']}`")->fetchColumn();
+        }
+    }
+
+    if (isset($r['validate'])) {
+        $r['validate']($data, $extra, $errors);
     }
     return [$data, $extra, $errors];
 }
@@ -294,7 +423,24 @@ function crud_list(array $r, array $admin): void
         $where[] = 't.status = ?';
         $params[] = $status;
     }
+    // Extra filters (category, year, client…)
+    $active = [];
+    foreach ($r['filters'] as &$flt) {
+        $flt['options'] = crud_options($flt['options']);
+        $v = (string) ($_GET[$flt['name']] ?? '');
+        if ($v !== '' && array_key_exists($v, $flt['options'])) {
+            $active[$flt['name']] = $v;
+            if ($v === '__none') {
+                $where[] = $flt['column'] . ' IS NULL';
+            } else {
+                $where[] = $flt['column'] . ' = ?';
+                $params[] = $v;
+            }
+        }
+    }
+    unset($flt);
     $whereSql = $where ? 'WHERE ' . implode(' AND ', $where) : '';
+    $filtered = $q !== '' || $status !== '' || $active;
 
     $count = db()->prepare("SELECT COUNT(*) FROM `{$r['table']}` t $whereSql");
     $count->execute($params);
@@ -305,13 +451,15 @@ function crud_list(array $r, array $admin): void
 
     $join = $r['image'] ? "LEFT JOIN media m ON m.id = t.`{$r['image']}`" : '';
     $mediaCols = $r['image'] ? ', m.id AS m_id, m.file_name AS m_file_name, m.kind AS m_kind, m.mime_type AS m_mime_type, m.title AS m_title, m.original_name AS m_original_name, m.alt_text AS m_alt_text' : '';
-    $stmt = db()->prepare("SELECT t.*$mediaCols FROM `{$r['table']}` t $join $whereSql ORDER BY t.sort_order, t.id LIMIT " . CRUD_PER_PAGE . " OFFSET $offset");
+    $extraCols = !empty($r['list_select']) ? ', ' . $r['list_select'] : '';
+    $stmt = db()->prepare("SELECT t.*$mediaCols$extraCols FROM `{$r['table']}` t $join $whereSql ORDER BY {$r['order_by']} LIMIT " . CRUD_PER_PAGE . " OFFSET $offset");
     $stmt->execute($params);
     $rows = $stmt->fetchAll();
 
-    $canReorder = $q === '' && $status === '';
-    $actions = '<a class="btn" href="' . e(crud_url($r, ['action' => 'new'])) . '">' . icon_svg('plus', 18) . '<span>Add ' . e($r['singular']) . '</span></a>';
-    admin_page_start($r['label'], $r['key'], $admin, $actions);
+    $canReorder = $r['sortable'] && !$filtered;
+    $listParams = array_filter(['q' => $q, 'status' => $status] + $active, static fn ($v) => $v !== '');
+    $actions = $r['page_actions'] . '<a class="btn" href="' . e(crud_url($r, ['action' => 'new'])) . '">' . icon_svg('plus', 18) . '<span>Add ' . e($r['singular']) . '</span></a>';
+    admin_page_start($r['label'], $r['menu_key'], $admin, $actions);
     ?>
   <form class="toolbar" method="get" action="<?= e(crud_url($r)) ?>" role="search">
     <label class="visually-hidden" for="list-q">Search</label>
@@ -319,34 +467,48 @@ function crud_list(array $r, array $admin): void
     <label class="visually-hidden" for="list-status">Status</label>
     <select id="list-status" name="status" data-autosubmit>
       <option value="">All statuses</option>
-      <option value="published"<?= $status === 'published' ? ' selected' : '' ?>>Published</option>
-      <option value="draft"<?= $status === 'draft' ? ' selected' : '' ?>>Draft</option>
+      <option value="published"<?= $status === 'published' ? ' selected' : '' ?>><?= e($r['status_labels']['published']) ?></option>
+      <option value="draft"<?= $status === 'draft' ? ' selected' : '' ?>><?= e($r['status_labels']['draft']) ?></option>
     </select>
+    <?php foreach ($r['filters'] as $flt): ?>
+      <label class="visually-hidden" for="filter-<?= e($flt['name']) ?>"><?= e($flt['label']) ?></label>
+      <select id="filter-<?= e($flt['name']) ?>" name="<?= e($flt['name']) ?>" data-autosubmit>
+        <option value=""><?= e($flt['label']) ?></option>
+        <?php foreach ($flt['options'] as $k => $v): ?>
+          <option value="<?= e((string) $k) ?>"<?= ($active[$flt['name']] ?? null) === (string) $k ? ' selected' : '' ?>><?= e($v) ?></option>
+        <?php endforeach; ?>
+      </select>
+    <?php endforeach; ?>
     <button class="btn btn--ghost btn--small" type="submit">Filter</button>
-    <?php if ($q !== '' || $status !== ''): ?><a class="btn btn--text btn--small" href="<?= e(crud_url($r)) ?>">Clear</a><?php endif; ?>
+    <?php if ($filtered): ?><a class="btn btn--text btn--small" href="<?= e(crud_url($r)) ?>">Clear</a><?php endif; ?>
   </form>
 
   <?php if (!$rows): ?>
     <section class="card empty">
-      <div class="empty__icon"><?= icon_svg(admin_menu()[$r['key']][2] ?? 'grid', 28) ?></div>
-      <h2><?= $q !== '' || $status !== '' ? 'Nothing matches your search' : 'No ' . e($r['plural']) . ' yet' ?></h2>
-      <p class="muted"><?= $q !== '' || $status !== '' ? 'Try a different word or clear the filter.' : 'Add your first one to get started.' ?></p>
+      <div class="empty__icon"><?= icon_svg(admin_menu()[$r['menu_key']][2] ?? 'grid', 28) ?></div>
+      <h2><?= $filtered ? 'Nothing matches your search' : 'No ' . e($r['plural']) . ' yet' ?></h2>
+      <p class="muted"><?= $filtered ? 'Try a different word or clear the filter.' : 'Add your first one to get started.' ?></p>
       <a class="btn" href="<?= e(crud_url($r, ['action' => 'new'])) ?>"><?= icon_svg('plus', 18) ?><span>Add <?= e($r['singular']) ?></span></a>
     </section>
   <?php else: ?>
-    <p class="muted small"><?= $total ?> <?= e($total === 1 ? $r['singular'] : $r['plural']) ?><?= $canReorder ? ' · Use the arrows to change the order shown on the website.' : ' · Clear the search/filter to change the order.' ?></p>
+    <p class="muted small"><?= $total ?> <?= e($total === 1 ? $r['singular'] : $r['plural']) ?><?= !$r['sortable'] ? '' : ($canReorder ? ' · Use the arrows to change the order shown on the website.' : ' · Clear the search/filters to change the order.') ?></p>
     <ul class="item-list">
       <?php foreach ($rows as $i => $row):
           $thumb = ($r['image'] && $row['m_id']) ? ['id' => $row['m_id'], 'file_name' => $row['m_file_name'], 'kind' => $row['m_kind'], 'mime_type' => $row['m_mime_type'], 'title' => $row['m_title'], 'original_name' => $row['m_original_name'], 'alt_text' => $row['m_alt_text']] : null;
           $view = crud_view_url($r, $row);
+          $live = crud_is_live($r, $row);
           $globalIndex = $offset + $i; ?>
       <li class="item">
-        <div class="item__thumb"><?php if ($thumb): ?><img src="<?= e(media_url($thumb, 'sm')) ?>" alt="" loading="lazy"><?php elseif (!empty($row['icon'])): ?><?= icon_svg((string) $row['icon'], 28) ?><?php else: ?><?= icon_svg('image', 24) ?><?php endif; ?></div>
+        <div class="item__thumb"><?php if ($thumb && $thumb['kind'] === 'image'): ?><img src="<?= e(media_url($thumb, 'sm')) ?>" alt="" loading="lazy"><?php elseif ($thumb): ?><?= icon_svg('file', 26) ?><?php elseif (!empty($row['icon'])): ?><?= icon_svg((string) $row['icon'], 28) ?><?php else: ?><?= icon_svg(admin_menu()[$r['menu_key']][2] ?? 'image', 24) ?><?php endif; ?></div>
         <div class="item__main">
           <a class="item__title" href="<?= e(crud_url($r, ['action' => 'edit', 'id' => $row['id']])) ?>"><?= e($row[$r['title']]) ?></a>
-          <span class="badge badge--<?= $row['status'] === 'published' ? 'published' : 'draft' ?>"><?= $row['status'] === 'published' ? 'Published' : 'Draft' ?></span>
-          <?php if ($r['summary'] && !empty($row[$r['summary']])): ?><p class="item__summary"><?= e(mb_strimwidth((string) $row[$r['summary']], 0, 140, '…')) ?></p><?php endif; ?>
-          <?php if (isset($row['slug'])): ?><p class="item__slug"><?= e(crud_view_url($r, $row) ?? '/' . $row['slug']) ?></p><?php endif; ?>
+          <span class="badge badge--<?= $row['status'] === 'published' ? 'published' : 'draft' ?>"><?= e($r['status_labels'][$row['status'] === 'published' ? 'published' : 'draft']) ?></span>
+          <?php if (isset($r['list_badges'])): foreach ($r['list_badges']($row) as [$bText, $bClass]): ?>
+            <span class="badge badge--<?= e($bClass) ?>"><?= e($bText) ?></span>
+          <?php endforeach; endif; ?>
+          <?php if (isset($r['list_meta']) && ($meta = $r['list_meta']($row)) !== ''): ?><p class="item__meta"><?= e($meta) ?></p><?php endif; ?>
+          <?php if ($r['summary'] && !empty($row[$r['summary']])): ?><p class="item__summary"><?= e(mb_strimwidth(strip_tags((string) $row[$r['summary']]), 0, 140, '…')) ?></p><?php endif; ?>
+          <?php if ($view): ?><p class="item__slug"><?= e($view) ?></p><?php endif; ?>
         </div>
         <div class="item__actions">
           <?php if ($canReorder): ?>
@@ -357,13 +519,13 @@ function crud_list(array $r, array $admin): void
             </form>
           <?php endif; ?>
           <a class="btn btn--small btn--ghost" href="<?= e(crud_url($r, ['action' => 'edit', 'id' => $row['id']])) ?>"><?= icon_svg('edit', 16) ?><span>Edit</span></a>
-          <?php if ($view && $row['status'] === 'published'): ?><a class="btn btn--small btn--text" href="<?= e($view) ?>" target="_blank" rel="noopener"><?= icon_svg('eye', 16) ?><span>View on site</span></a><?php endif; ?>
+          <?php if ($view && $live): ?><a class="btn btn--small btn--text" href="<?= e($view) ?>" target="_blank" rel="noopener"><?= icon_svg('eye', 16) ?><span>View on site</span></a><?php endif; ?>
           <a class="btn btn--small btn--danger-text" href="<?= e(crud_url($r, ['action' => 'delete', 'id' => $row['id']])) ?>"><?= icon_svg('trash', 16) ?><span>Delete</span></a>
         </div>
       </li>
       <?php endforeach; ?>
     </ul>
-    <?= pagination_html($page, $pages, static fn (int $p) => crud_url($r, array_filter(['q' => $q, 'status' => $status, 'page' => $p > 1 ? $p : null]))) ?>
+    <?= pagination_html($page, $pages, static fn (int $p) => crud_url($r, $listParams + ($p > 1 ? ['page' => $p] : []))) ?>
   <?php endif;
     admin_page_end();
 }
@@ -383,11 +545,11 @@ function pagination_html(int $page, int $pages, callable $url): string
 /** Add / edit form. $values = submitted values when re-showing after errors. */
 function crud_form(array $r, array $admin, ?array $row, ?array $values = null, array $errors = []): void
 {
-    $v = $values ?? $row ?? [];
     $isNew = $row === null;
+    $v = $values ?? $row ?? $r['defaults'];
     $title = $isNew ? 'Add ' . $r['singular'] : 'Edit ' . $r['singular'];
     $back = '<a class="btn btn--text" href="' . e(crud_url($r)) . '">← All ' . e($r['plural']) . '</a>';
-    admin_page_start($title, $r['key'], $admin, $back);
+    admin_page_start($title, $r['menu_key'], $admin, $back);
     echo form_error_summary($errors);
     ?>
   <form method="post" action="<?= e(crud_url($r, $isNew ? ['action' => 'new'] : ['action' => 'edit', 'id' => $row['id']])) ?>" class="edit-form" data-dirty-check novalidate>
@@ -398,7 +560,9 @@ function crud_form(array $r, array $admin, ?array $row, ?array $values = null, a
     <div class="edit-form__main">
       <section class="card form">
         <?php foreach ($r['fields'] as $f) {
-            echo crud_render_field($f, $v, $row, $errors);
+            if (empty($f['side'])) {
+                echo crud_render_field($f, $v, $row, $errors);
+            }
         } ?>
       </section>
 
@@ -420,12 +584,19 @@ function crud_form(array $r, array $admin, ?array $row, ?array $values = null, a
     <aside class="edit-form__side">
       <section class="card form sticky">
         <h2>Publish</h2>
-        <?= field_status((string) ($v['status'] ?? 'draft')) ?>
-        <?= field_text('sort_order', 'Position in lists', isset($v['sort_order']) ? (string) $v['sort_order'] : '', ['type' => 'number', 'help' => 'Smaller numbers are shown first. Leave empty to add at the end.', 'inputmode' => 'numeric'], $errors) ?>
+        <?= field_status((string) ($v['status'] ?? 'draft'), $r['status_labels'], $r['status_help']) ?>
+        <?php foreach ($r['fields'] as $f) {
+            if (!empty($f['side'])) {
+                echo crud_render_field($f, $v, $row, $errors);
+            }
+        } ?>
+        <?php if ($r['sortable']): ?>
+          <?= field_text('sort_order', 'Position in lists', isset($v['sort_order']) ? (string) $v['sort_order'] : '', ['type' => 'number', 'help' => 'Smaller numbers are shown first. Leave empty to add at the end.', 'inputmode' => 'numeric'], $errors) ?>
+        <?php endif; ?>
         <button type="submit" class="btn btn--block"><?= icon_svg('check', 18) ?><span><?= $isNew ? 'Save ' . e($r['singular']) : 'Save changes' ?></span></button>
         <?php if (!$isNew): ?>
           <p class="muted small">Last saved: <?= e(date('j M Y, g:i a', strtotime((string) $row['updated_at']))) ?></p>
-          <?php $view = crud_view_url($r, $row); if ($view && $row['status'] === 'published'): ?>
+          <?php $view = crud_view_url($r, $row); if ($view && crud_is_live($r, $row)): ?>
             <a class="btn btn--ghost btn--block" href="<?= e($view) ?>" target="_blank" rel="noopener"><?= icon_svg('eye', 18) ?><span>View on site</span></a>
           <?php endif; ?>
           <a class="btn btn--danger-text btn--block" href="<?= e(crud_url($r, ['action' => 'delete', 'id' => $row['id']])) ?>"><?= icon_svg('trash', 18) ?><span>Delete this <?= e($r['singular']) ?></span></a>
@@ -443,45 +614,88 @@ function crud_render_field(array $f, array $v, ?array $row, array $errors): stri
     $label = $f['label'] ?? $n;
     $val = isset($v[$n]) && !is_array($v[$n]) ? (string) $v[$n] : '';
     return match ($f['type']) {
-        'text'     => field_text($n, $label, $val, $f, $errors),
-        'textarea' => field_textarea($n, $label, $val, $f, $errors),
-        'richtext' => field_richtext($n, $label, $val, $f, $errors),
-        'slug'     => field_slug($n, $label, $val, $f, $errors),
-        'icon'     => field_icon($n, $label, $val, $f, $errors),
-        'select'   => field_select($n, $label, $val, $f['options'], $f, $errors),
-        'switch'   => field_switch($n, $label, (bool) ($v[$n] ?? false), $f),
-        'media'    => field_media($n, $label, $val !== '' ? media_find((int) $val) : null, $f, $errors),
-        'gallery'  => field_gallery($n, $label, media_rows(is_array($v[$n] ?? null) ? $v[$n] : crud_gallery_ids($f, $row)), $f, $errors),
-        default    => '',
+        'text'       => field_text($n, $label, $val, ['type' => $f['input'] ?? 'text'] + $f, $errors),
+        'int'        => field_text($n, $label, $val, ['type' => 'number', 'inputmode' => 'numeric'] + $f, $errors),
+        'url'        => field_text($n, $label, $val, ['type' => 'url', 'placeholder' => $f['placeholder'] ?? 'https://'] + $f, $errors),
+        'date'       => field_text($n, $label, date_input_value($val, false), ['type' => 'date'] + $f, $errors),
+        'datetime'   => field_text($n, $label, date_input_value($val, true), ['type' => 'datetime-local'] + $f, $errors),
+        'textarea'   => field_textarea($n, $label, $val, $f, $errors),
+        'richtext'   => field_richtext($n, $label, $val, $f, $errors),
+        'slug'       => field_slug($n, $label, $val, $f, $errors),
+        'icon'       => field_icon($n, $label, $val, $f, $errors),
+        'select'     => field_select($n, $label, $val, (isset($f['empty']) ? ['' => $f['empty']] : []) + crud_options($f['options']), $f, $errors),
+        'checkboxes' => field_checkboxes($n, $label, is_array($v[$n] ?? null) ? $v[$n] : crud_link_ids($f, $row), crud_options($f['options']), $f, $errors),
+        'switch'     => field_switch($n, $label, (bool) ($v[$n] ?? ($f['default'] ?? false)), $f),
+        'media'      => field_media($n, $label, $val !== '' ? media_find((int) $val) : null, $f, $errors),
+        'gallery'    => field_gallery($n, $label, crud_gallery_rows($f, $row, is_array($v[$n] ?? null) ? $v[$n] : null), $f, $errors),
+        'custom'     => $f['render']($v, $row, $errors),
+        default      => '',
     };
 }
 
-function crud_gallery_ids(array $f, ?array $row): array
+/** IDs chosen in a tick-box list (from its link table). */
+function crud_link_ids(array $f, ?array $row): array
 {
     if (!$row) {
         return [];
     }
-    $stmt = db()->prepare("SELECT media_id FROM `{$f['link_table']}` WHERE `{$f['link_fk']}` = ? ORDER BY sort_order, id");
+    $stmt = db()->prepare("SELECT `{$f['link_other']}` FROM `{$f['link_table']}` WHERE `{$f['link_fk']}` = ?");
     $stmt->execute([(int) $row['id']]);
     return array_map('intval', $stmt->fetchAll(PDO::FETCH_COLUMN));
 }
 
+/** Media rows (+ caption) for a gallery: from submitted items or from the link table. */
+function crud_gallery_rows(array $f, ?array $row, ?array $submitted): array
+{
+    if ($submitted === null) {
+        $submitted = [];
+        if ($row) {
+            $stmt = db()->prepare("SELECT media_id AS id, caption FROM `{$f['link_table']}` WHERE `{$f['link_fk']}` = ? ORDER BY sort_order, id");
+            $stmt->execute([(int) $row['id']]);
+            $submitted = $stmt->fetchAll();
+        }
+    }
+    $captions = [];
+    foreach ($submitted as $it) {
+        $captions[(int) $it['id']] = (string) ($it['caption'] ?? '');
+    }
+    return array_map(static fn ($m) => $m + ['caption' => $captions[(int) $m['id']] ?? ''], media_rows(array_keys($captions)));
+}
+
 function crud_confirm_delete(array $r, array $admin, array $row): void
 {
-    admin_page_start('Delete ' . $r['singular'], $r['key'], $admin);
+    $blocked = isset($r['delete_check']) ? $r['delete_check']($row) : null;
+    $warning = isset($r['delete_warning']) ? $r['delete_warning']($row) : null;
+    admin_page_start('Delete ' . $r['singular'], $r['menu_key'], $admin);
     ?>
   <section class="card card--narrow confirm">
     <h2>Delete “<?= e($row[$r['title']]) ?>”?</h2>
-    <p>This permanently removes the <?= e($r['singular']) ?> from the website and the admin. <strong>This cannot be undone.</strong></p>
-    <p class="muted small">Images stay in the Media Library and can be reused.</p>
-    <form method="post" action="<?= e(crud_url($r)) ?>" class="confirm__buttons">
-      <?= csrf_field() ?>
-      <input type="hidden" name="action" value="delete">
-      <input type="hidden" name="id" value="<?= (int) $row['id'] ?>">
-      <button type="submit" class="btn btn--danger"><?= icon_svg('trash', 18) ?><span>Yes, delete it</span></button>
-      <a class="btn btn--ghost" href="<?= e(crud_url($r, ['action' => 'edit', 'id' => $row['id']])) ?>">No, keep it</a>
-    </form>
+    <?php if ($blocked !== null): ?>
+      <div class="notice notice--error" role="alert"><p><?= e($blocked) ?></p></div>
+      <div class="confirm__buttons"><a class="btn btn--ghost" href="<?= e(crud_url($r)) ?>">← Back to <?= e($r['plural']) ?></a></div>
+    <?php else: ?>
+      <?php if ($warning !== null): ?><div class="notice notice--info" role="status"><p><?= e($warning) ?></p></div><?php endif; ?>
+      <p>This permanently removes the <?= e($r['singular']) ?> from the website and the admin. <strong>This cannot be undone.</strong></p>
+      <?php if ($r['image']): ?><p class="muted small">Images and files stay in the Media Library and can be reused.</p><?php endif; ?>
+      <form method="post" action="<?= e(crud_url($r)) ?>" class="confirm__buttons">
+        <?= csrf_field() ?>
+        <input type="hidden" name="action" value="delete">
+        <input type="hidden" name="id" value="<?= (int) $row['id'] ?>">
+        <button type="submit" class="btn btn--danger"><?= icon_svg('trash', 18) ?><span>Yes, delete it</span></button>
+        <a class="btn btn--ghost" href="<?= e(crud_url($r, ['action' => 'edit', 'id' => $row['id']])) ?>">No, keep it</a>
+      </form>
+    <?php endif; ?>
   </section>
 <?php
     admin_page_end();
+}
+
+/** Small reusable option lists for selects/filters. */
+function options_from(string $sql): array
+{
+    $out = [];
+    foreach (db()->query($sql) as $r) {
+        $out[(string) $r['k']] = (string) $r['v'];
+    }
+    return $out;
 }

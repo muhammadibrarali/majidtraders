@@ -28,7 +28,7 @@ crud_run([
         ['name' => 'icon', 'type' => 'icon', 'label' => 'Icon', 'help' => 'Small symbol shown on the service card.'],
         ['name' => 'image_id', 'type' => 'media', 'label' => 'Cover image', 'accept' => 'image',
          'help' => 'Large photo at the top of the service page and on cards. Landscape photos (wider than tall) work best.'],
-        ['name' => 'gallery', 'type' => 'gallery', 'label' => 'Gallery images (optional)', 'link_table' => 'service_images', 'link_fk' => 'service_id',
+        ['name' => 'gallery', 'type' => 'gallery', 'label' => 'Gallery images (optional)', 'link_table' => 'service_images', 'link_fk' => 'service_id', 'captions' => true,
          'help' => 'Extra photos shown on the service page. Use the arrows to change their order.'],
     ],
 ]);

@@ -52,16 +52,22 @@ These rules apply to EVERY task in this repository. Read them before changing an
 - Brand colours (CSS custom properties): orange `#F26B1D`, charcoal `#1E2124`.
 
 ## Database
-- Design lives in `includes/schema.php`. Tables: admin_users, login_attempts, media, settings (key/value), counters, services, clients, project_categories, projects, project_images, team_members, blog_categories, blog_posts, certifications, testimonials, contact_messages.
+- Design lives in `includes/schema.php`. Tables: admin_users, login_attempts, media, settings (key/value), counters, services, service_images, clients, project_categories, projects, project_images, project_services, team_members, blog_categories, blog_posts, certifications, testimonials, contact_messages.
 - Content tables have `status` ('draft'/'published'), `sort_order`, `created_at`, `updated_at`; slugs are UNIQUE.
 - Setup is complete on the live site and admin/setup.php was deleted.
-- Upgrades: `includes/migrations.php` runs numbered steps automatically when an admin opens any admin page (`settings.schema_version`, currently 2). To change the database: update schema.php (fresh installs) AND add the next numbered, idempotent step to migrations.php (bump SCHEMA_VERSION).
+- Upgrades: `includes/migrations.php` runs numbered steps automatically when an admin opens any admin page (`settings.schema_version`, currently 3). To change the database: update schema.php (fresh installs) AND add the next numbered, idempotent step to migrations.php (bump SCHEMA_VERSION).
 - v2 added: `media.title`, `service_images` (service gallery), all Site Settings keys, company details, 3 starter services (drafts).
+- v3 added: `projects.project_status` (completed/ongoing), `project_services` (project ↔ service), `clients.show_in_marquee`, `team_members.department` (and DROPPED `team_members.phone` — never store staff phone numbers or home addresses), `blog_posts.tags`, `.reading_minutes`, `.author_team_id` (author = admin OR team member), `certifications.grade`, `.show_number`.
+- Public pages must respect: status = 'published'; blog posts also `published_at <= NOW()` (future = scheduled); team uses status as "Shown on website"; certifications hide `registration_number` when `show_number = 0`; logo marquee = clients with `show_in_marquee = 1`; home showcase = projects with `is_featured = 1`.
 - Settings are key/value (`includes/settings.php`: `setting()`, `save_settings()`); media references in settings store the media ID (keys listed in `media_setting_keys()`).
 
 ## Admin pattern (reuse for every content section)
 - `includes/admin_crud.php` → `crud_run([...])`: list (thumbnail, status badge, search, status filter, pagination, up/down order), add/edit form (help text, validation, auto slug + uniqueness, Draft/Published, position, SEO title + meta description with counters and Google preview, unsaved-changes warning, success flash), delete confirmation page. All changes POST + CSRF. See `admin/services.php` for a complete example.
-- Field types: text, slug, textarea, richtext, icon, select, switch, media (single file picker), gallery (ordered images in a link table). Renderers live in `includes/admin_form.php`.
+- Field types: text, int, url, date, datetime, slug, textarea, richtext, icon, select (optional with 'empty'), checkboxes (many-to-many link table), switch, media (accept image|document|any), gallery (ordered images + optional captions in a link table), custom (render/collect callbacks). Fields with 'side' => true go in the right-hand Publish box. Renderers live in `includes/admin_form.php`.
+- Resource options (documented at the top of admin_crud.php): filters, list_select/list_meta/list_badges, status_labels, sortable/order_by, is_live, defaults, validate, before_save, delete_check (block delete, e.g. category in use), delete_warning, page_actions, menu_key.
+- Sections built with it: services, projects (+ project-categories), clients, team, blog (+ blog-categories), certifications, testimonials. "View on site" URLs: /services/{slug}, /projects/{slug}, /projects/category/{slug}, /blog/{slug}, /blog/category/{slug}, /clients#{slug}, /team#{slug}, /certifications#{slug}.
+- Messages (`admin/messages.php`, custom page): inbox for contact_messages (status 'new' = unread), open = mark read, mark read/unread, bulk actions, delete with confirmation, CSV export (POST + CSRF, formula-injection safe). Unread count shows on the sidebar and dashboard.
+- Dashboard warns about certificates expiring within 60 days or already expired.
 - Rich text: local editor in `assets/js/admin.js`; every saved HTML goes through `clean_html()` (`includes/sanitize.php`, HTML Purifier 4.19.1 in `lib/htmlpurifier`, allow-list: p, br, strong/b, em/i, u, s, h2–h4, ul/ol/li, blockquote, hr, a[href], img[src|alt] from this site only).
 - When adding a content table that references media, also add it to `media_usage()` in `includes/media_lib.php` (delete warnings).
 
@@ -105,6 +111,8 @@ Home, About, Services (+ detail pages), Projects (+ detail pages), Clients, Team
 └── admin/            admin panel (noindex + no-cache sent by PHP admin_headers(); local CSS/JS only, no CDN)
     ├── index.php     dashboard          ├── login.php / logout.php (logout = POST + CSRF)
     ├── password.php  change password (logs out other sessions)
+    ├── messages.php  contact-form inbox (custom page)
+    ├── project-categories.php / blog-categories.php  category managers (block delete while in use)
     └── <section>.php one file per sidebar section; every page starts with require_admin()
 
 ../private/           OUTSIDE the website, never in git

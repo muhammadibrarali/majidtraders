@@ -325,6 +325,18 @@ body:not(:has(.fab-whatsapp)) .to-top { bottom: var(--space-m); }
 @keyframes fade-up { from { opacity: 0; transform: translateY(24px); } to { opacity: 1; transform: none; } }
 @keyframes scroll-line { 0% { transform: translateY(-100%); } 60%, 100% { transform: translateY(100%); } }
 .scroll-hint { transform: none; left: calc(50% - 1.5rem); }
+/* Phones & tablets: the hero fits its content instead of filling a tall screen
+   with empty space. With a photo it stays big; without one it is compact. */
+@media (max-width: 1023px) {
+  .hero { min-height: min(100svh, 46rem); padding-top: calc(var(--header-h) + var(--preview-h) + var(--space-xl)); }
+  .hero--plain { min-height: 0; padding-top: calc(var(--header-h) + var(--preview-h) + clamp(3rem, 2rem + 6vw, 5rem)); padding-bottom: 7rem; }
+}
+@media (max-width: 699px) {
+  .hero { min-height: min(85svh, 38rem); padding-bottom: 7.5rem; }
+  .hero--plain { min-height: 0; padding-bottom: 7rem; }
+  .hero__title { font-size: clamp(2.6rem, 11.5vw, 3.75rem); }
+  .hero__lead { font-size: 1.05rem; }
+}
 
 /* =====================================================================
    2. Client logo marquee
@@ -552,6 +564,10 @@ html.lenis, html.lenis body { height: auto; }
 .page-hero__eyebrow { animation: fade-up .9s var(--ease) .1s both; }
 .page-hero__extra { display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-s) var(--space-m); margin-top: var(--space-l); animation: fade-up 1s var(--ease) .7s both; }
 .page-hero__meta { color: rgba(255, 255, 255, .8); font-weight: 600; }
+@media (max-width: 699px) {
+  .page-hero { min-height: clamp(18rem, 52svh, 24rem); padding-top: calc(var(--header-h) + var(--preview-h) + var(--space-xl)); padding-bottom: var(--space-xl); }
+  .page-hero--plain { min-height: 0; }
+}
 
 /* Breadcrumbs */
 .breadcrumbs { margin-bottom: var(--space-l); font-size: .85rem; animation: fade-up .8s var(--ease) both; }
